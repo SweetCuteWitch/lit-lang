@@ -64,3 +64,17 @@ describe('multi-word known words', () => {
     expect(validateTask(t, env(['name', 'gyventi']))).toEqual([]);
   });
 });
+
+describe('review fixes', () => {
+  it('accepts negated forms of a learned verb', () => {
+    expect(validateTask(input({ question: 'Aš ___ Vilniuje.', accept: ['negyvenu'] }), env(['gyventi']))).toEqual([]);
+  });
+  it('requires reject for forms that differ from the answer only by diacritics', () => {
+    const t = input({ question: 'Aš turiu ___ (knyga).', accept: ['knygą'], unverified: ['turiu'] });
+    expect(validateTask(t, env(['knyga']))).toContain('accept «knygą»: без диакритики совпадает с «knyga» — добавьте её в reject');
+    expect(validateTask({ ...t, reject: ['knyga'] } as TaskInput, env(['knyga']))).toEqual([]);
+  });
+  it('limits theory length', () => {
+    expect(validateTheory('a'.repeat(3600))[0]).toContain('длиннее 3500');
+  });
+});

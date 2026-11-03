@@ -63,7 +63,7 @@ export function resolveWord(lex: Lexicon, spec: z.infer<typeof WordSpec>): { wor
     return {
       word: {
         lemma: e.lemma, translation: spec.translation, pos: e.pos, gender: e.gender ?? null,
-        keyForms: keyForms.length ? keyForms : [e.lemma], example: spec.example ?? null, verified: true,
+        keyForms: keyForms.length ? keyForms : [e.lemma], example: spec.example ?? null, verified: !e.derived,
       },
     };
   }

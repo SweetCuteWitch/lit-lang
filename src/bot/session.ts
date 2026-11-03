@@ -32,15 +32,15 @@ async function sendTracked(ctx: BotCtx, s: Session, text: string, markup?: SendO
   return m.message_id;
 }
 
-export async function closeSession(ctx: BotCtx, s: Session) {
-  await deleteAll(ctx, s.messageIds);
+export async function closeSession(ctx: BotCtx, s: Session, keep: number[] = []) {
+  await deleteAll(ctx, s.messageIds.filter((id) => !keep.includes(id)));
   s.finishedAt = ctx.now().toISOString();
   s.messageIds = [];
   await save(ctx, s);
 }
 
 async function finish(ctx: BotCtx, s: Session) {
-  await closeSession(ctx, s);
+  await closeSession(ctx, s, s.state.lastFeedbackId ? [s.state.lastFeedbackId] : []);
   const weak = [...new Set(s.state.mistakes ?? [])].slice(0, 5);
   const bank = await bankStatus(ctx.store);
   await send(ctx, 'training', formatSummary(s.correct, s.total, weak, bank), { markup: afterSessionButtons() });
@@ -135,12 +135,12 @@ async function feedback(ctx: BotCtx, s: Session, task: Task, answer: string, r: 
   if (r.correct) s.correct++;
   else s.state.mistakes = [...(s.state.mistakes ?? []), ...tags];
   const f = formatFeedback(r, explanation, !r.correct && answer !== '', a.id);
-  await sendTracked(ctx, s, f.text, f.markup);
+  s.state.lastFeedbackId = await sendTracked(ctx, s, f.text, f.markup);
 }
 
 async function advance(ctx: BotCtx, s: Session) {
   s.cursor++;
-  s.state = { mistakes: s.state.mistakes };
+  s.state = { mistakes: s.state.mistakes, lastFeedbackId: s.state.lastFeedbackId };
   await sendCurrent(ctx, s);
 }
 

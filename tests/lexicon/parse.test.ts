@@ -87,4 +87,12 @@ describe('derived and form-of words', () => {
     expect(lex.has('nėra')).toBe(true);
     expect(lex.lookup('nėra')).toEqual([]);
   });
+  it('does not derive forms of būti, te- outside the present, and marks derived entries', () => {
+    expect(lex.lemmasOf('neyra')).toEqual([]);
+    expect(lex.lemmasOf('paesu')).toEqual([]);
+    expect(lex.form('nebūti', 'pres.3')).toBeUndefined();
+    expect(lex.lemmasOf('tegyvenau')).toEqual([]);
+    expect(lex.lemmasOf('tegyvena').length).toBeGreaterThan(0);
+    expect(lex.lookup('pagyventi')[0].derived).toBe(true);
+  });
 });

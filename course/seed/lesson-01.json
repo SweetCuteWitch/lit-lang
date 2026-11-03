@@ -30,7 +30,7 @@
   "tasks": [
     { "kind": "choice", "lessonNo": 1, "slot": "new", "portionKey": "1.1", "tags": ["greetings"], "question": "Как поздороваться утром?", "options": ["Labas rytas!", "Labas vakaras!", "Viso gero!"], "correct": 0, "explanation": "rytas — утро" },
     { "kind": "choice", "lessonNo": 1, "slot": "new", "portionKey": "1.1", "tags": ["greetings"], "question": "«Labas vakaras!» значит…", "options": ["Добрый вечер!", "Доброе утро!", "До свидания!"], "correct": 0, "explanation": "vakaras — вечер" },
-    { "kind": "input", "lessonNo": 1, "slot": "new", "portionKey": "1.1", "tags": ["greetings", "gender"], "question": "Laba ___! (Добрый день!)", "accept": ["diena"], "explanation": "diena — день; женский род, поэтому laba" },
+    { "kind": "input", "lessonNo": 1, "slot": "new", "portionKey": "1.1", "tags": ["greetings", "gender"], "question": "Laba ___! (Добрый день!)", "accept": ["diena"], "reject": ["dieną"], "explanation": "diena — день; женский род, поэтому laba" },
     { "kind": "order", "lessonNo": 1, "slot": "new", "portionKey": "1.1", "tags": ["greetings"], "question": "Соберите: «Доброе утро!»", "words": ["rytas", "Labas"], "accept": ["Labas rytas"], "explanation": "" },
     { "kind": "translate", "direction": "lt-ru", "lessonNo": 1, "slot": "new", "portionKey": "1.1", "tags": ["greetings"], "source": "Sveiki!", "accept": ["Здравствуйте", "Привет", "Здравствуй"], "explanation": "Sveiki! — вежливое приветствие" },
     { "kind": "choice", "lessonNo": 1, "slot": "new", "portionKey": "1.1", "tags": ["greetings"], "question": "Как попрощаться?", "options": ["Labas!", "Viso gero!", "Sveiki!"], "correct": 1, "explanation": "Viso gero! — До свидания!" },

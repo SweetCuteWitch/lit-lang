@@ -27,6 +27,14 @@ export function storeContract(makeStore: () => Store | Promise<Store>) {
     await store.setSetting('progress', { lessonNo: 2 });
     await store.setSetting('progress', { lessonNo: 3 });
     expect(await store.getSetting('progress')).toEqual({ lessonNo: 3 });
+    await store.setSetting('progress', null);
+    expect(await store.getSetting('progress')).toBeNull();
+  });
+
+  it('marks each update id once, in any order', async () => {
+    expect(await store.markUpdate(1000)).toBe(true);
+    expect(await store.markUpdate(1000)).toBe(false);
+    expect(await store.markUpdate(5)).toBe(true);
   });
 
   it('upserts lessons and lists them in order', async () => {

@@ -57,7 +57,19 @@ export function createSupabaseStore(cfg: Cfg): Store {
       return data ? (data.value as T) : null;
     },
     async setSetting(key, value) {
+      // value is jsonb NOT NULL: a null setting is stored as a missing row.
+      if (value === null || value === undefined) {
+        must(await db.from('settings').delete().eq('key', key), 'setSetting');
+        return;
+      }
       must(await db.from('settings').upsert({ key, value, updated_at: new Date().toISOString() }), 'setSetting');
+    },
+    async markUpdate(updateId) {
+      const rows = must(
+        await db.from('processed_updates').upsert({ update_id: updateId }, { onConflict: 'update_id', ignoreDuplicates: true }).select('update_id'),
+        'markUpdate',
+      ) as unknown[];
+      return rows.length > 0;
     },
 
     async upsertLessons(list) {

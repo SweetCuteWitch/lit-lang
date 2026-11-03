@@ -72,34 +72,43 @@ async function onText(ctx: BotCtx, m: TgMessage) {
 
   const s = await ctx.store.activeSession();
   if (s && (await answerTyped(ctx, s, text, m.message_id))) return;
-  await ctx.api.sendMessage(ctx.chatId, TEXT.noTask, { threadId: m.message_thread_id ?? null });
+  // Without a writing topic, a plain message is the writing while its prompt is pending.
+  if (topics.writing == null && pending != null) return submitWriting(ctx, text);
+  await ctx.api.sendMessage(ctx.chatId, s ? TEXT.useButtons : TEXT.noTask, { threadId: m.message_thread_id ?? null });
 }
 
 async function onCallback(ctx: BotCtx, cq: NonNullable<TgUpdate['callback_query']>) {
   const data = cq.data ?? '';
   const messageId = cq.message?.message_id ?? 0;
   let toast: string | null = null;
-  if (data === 'start' || data === 'more') {
-    await ctx.api.answerCallbackQuery(cq.id);
-    return startSession(ctx, { preferNew: data === 'more' });
+  let answered = false;
+  try {
+    if (data === 'start' || data === 'more') {
+      await ctx.api.answerCallbackQuery(cq.id);
+      answered = true;
+      return await startSession(ctx, { preferNew: data === 'more' });
+    }
+    if (data.startsWith('d:')) {
+      toast = await dispute(ctx, data.slice(2), messageId);
+    } else {
+      const cb = parseCallback(data);
+      const s = await ctx.store.activeSession();
+      toast = cb && s ? await answerButton(ctx, s, cb, messageId) : TEXT.stale;
+    }
+  } finally {
+    // Without an answer the button keeps spinning, even when handling failed.
+    if (!answered) {
+      await ctx.api.answerCallbackQuery(cq.id, toast ?? undefined).catch((err) => ctx.log?.('answerCallbackQuery failed', err));
+    }
   }
-  if (data.startsWith('d:')) {
-    toast = await dispute(ctx, data.slice(2), messageId);
-  } else {
-    const cb = parseCallback(data);
-    const s = await ctx.store.activeSession();
-    toast = cb && s ? await answerButton(ctx, s, cb, messageId) : TEXT.stale;
-  }
-  await ctx.api.answerCallbackQuery(cq.id, toast ?? undefined);
 }
 
 export async function handleUpdate(update: TgUpdate, ctx: BotCtx): Promise<void> {
   const chatId = update.message?.chat.id ?? update.callback_query?.message?.chat.id;
   if (chatId !== ctx.chatId) return;
-  // Telegram retries a webhook that failed or timed out: handle each update once.
-  const last = await ctx.store.getSetting<number>('lastUpdateId');
-  if (last !== null && update.update_id <= last) return;
-  await ctx.store.setSetting('lastUpdateId', update.update_id);
+  // Telegram retries a webhook that failed or timed out: handle each update once. Ids are not
+  // monotonic (they restart randomly after a week without updates), so each one is recorded.
+  if (!(await ctx.store.markUpdate(update.update_id))) return;
   if (update.callback_query) return onCallback(ctx, update.callback_query);
   if (update.message) return onText(ctx, update.message);
 }

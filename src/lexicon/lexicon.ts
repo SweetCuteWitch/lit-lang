@@ -24,11 +24,17 @@ function withPrefix(e: LexEntry, prefix: string, reflexive: boolean): LexEntry {
     lemma: add(e.lemma),
     pos: 'verb',
     gloss: `${prefix}- + ${e.lemma} (${e.gloss})`,
+    derived: true,
     // 3rd person imperative is te- + present (tegyvena): the prefix goes after te-, so it is not derived.
     forms: Object.fromEntries(Object.entries(e.forms).filter(([k]) => k !== 'imp.3').map(([k, v]) => [k, v.map(add)])),
     other: [],
   };
 }
+
+/** Irregular verbs whose prefixed/negated forms are not regular (ne + esu = nesu, ne + yra = nėra). */
+const NO_DERIVATION = new Set(['būti']);
+/** te- forms only the 3rd person imperative from the present: tegyvena. */
+const prefixAllows = (p: string, key: string) => p !== 'te' || key.startsWith('pres.');
 
 export function createLexicon(entries: LexEntry[]): Lexicon {
   const byLemma = new Map<string, LexEntry[]>();
@@ -53,10 +59,12 @@ export function createLexicon(entries: LexEntry[]): Lexicon {
   function derive(lemma: string): LexEntry[] {
     const l = norm(lemma);
     for (const p of VERB_PREFIXES) {
-      if (!l.startsWith(p) || l.length - p.length < 3) continue;
+      if (p === 'te' || !l.startsWith(p) || l.length - p.length < 3) continue;
       const rest = l.slice(p.length);
       for (const reflexive of rest.startsWith('si') ? [true, false] : [false]) {
-        const base = ownLookup(reflexive ? rest.slice(2) : rest).filter((e) => e.pos === 'verb' && Object.keys(e.forms).length > 1);
+        const base = ownLookup(reflexive ? rest.slice(2) : rest).filter(
+          (e) => e.pos === 'verb' && Object.keys(e.forms).length > 1 && !NO_DERIVATION.has(e.lemma),
+        );
         if (base.length) return base.map((e) => withPrefix(e, p, reflexive));
       }
     }
@@ -70,7 +78,9 @@ export function createLexicon(entries: LexEntry[]): Lexicon {
       for (const reflexive of [true, false]) {
         const rest = f.slice(p.length);
         if (reflexive && !rest.startsWith('si')) continue;
-        const refs = (byForm.get(reflexive ? rest.slice(2) : rest) ?? []).filter((r) => r.pos === 'verb' && r.key !== 'other');
+        const refs = (byForm.get(reflexive ? rest.slice(2) : rest) ?? []).filter(
+          (r) => r.pos === 'verb' && r.key !== 'other' && !NO_DERIVATION.has(r.lemma) && prefixAllows(p, r.key),
+        );
         if (refs.length) return refs.map((r) => ({ lemma: p + (reflexive ? 'si' : '') + r.lemma, pos: 'verb', key: r.key }));
       }
     }

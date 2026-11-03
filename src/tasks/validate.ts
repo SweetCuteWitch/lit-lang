@@ -1,5 +1,5 @@
 import type { Lexicon } from '../lexicon/lexicon';
-import { normalizeAnswer, tokenize } from '../text/normalize';
+import { fold, normalizeAnswer, tokenize } from '../text/normalize';
 import type { TaskInput } from './schema';
 
 /** Lexicon parts of speech that are vocabulary: such words must be taught before a task uses them. */
@@ -7,6 +7,14 @@ const CONTENT_POS = new Set(['noun', 'verb', 'adj']);
 export const MAX_RU_LT_WORDS = 6;
 const LT_TOKEN = /^[a-ząčęėįšųūž]+(?:-[a-ząčęėįšųūž]+)*$/;
 const ALLOWED_TAGS = new Set(['b', 'i', 'u', 's', 'code', 'pre', 'blockquote']);
+/** Telegram allows 4096 characters per message; the header takes some. */
+export const MAX_THEORY_LENGTH = 3500;
+
+/** nežinoti → žinoti: a negated verb counts as learned when its base verb is. */
+const knownLemma = (known: Set<string>, lemma: string) => {
+  const l = lemma.toLowerCase();
+  return known.has(l) || (l.startsWith('nebe') && known.has(l.slice(4))) || (l.startsWith('ne') && known.has(l.slice(2)));
+};
 
 export interface ValidationEnv {
   lex: Lexicon;
@@ -47,7 +55,7 @@ export function validateTask(t: TaskInput, env: ValidationEnv): string[] {
     const content = refs.filter((r) => CONTENT_POS.has(r.pos));
     const lemmaRefs = refs.filter((r) => r.pos !== 'formof');
     // A token that is also a pronoun/numeral/name/function word is fine; otherwise one of its lemmas must be known.
-    if (lemmaRefs.length && content.length === lemmaRefs.length && !known.has(token) && !content.some((r) => known.has(r.lemma.toLowerCase()))) {
+    if (lemmaRefs.length && content.length === lemmaRefs.length && !known.has(token) && !content.some((r) => knownLemma(known, r.lemma))) {
       unlearned.add(`${token} (${[...new Set(content.map((r) => r.lemma))].join('/')})`);
     }
   }
@@ -61,6 +69,25 @@ export function validateTask(t: TaskInput, env: ValidationEnv): string[] {
       errors.push(`target: форма ${t.target.lemma} ${t.target.key} = «${form}», её нет в accept`);
     }
   }
+  if (t.kind === 'input' || (t.kind === 'translate' && t.direction === 'ru-lt')) {
+    // An answer typed without diacritics is accepted unless it equals a reject form: every other
+    // real form of the same word that folds to the same letters must be listed in reject.
+    const listed = new Set([...t.accept, ...t.reject].map((a) => normalizeAnswer(a)));
+    for (const a of t.accept) {
+      const token = normalizeAnswer(a);
+      if (/\s/.test(token)) continue;
+      const clashes = new Set<string>();
+      for (const ref of env.lex.lemmasOf(token)) {
+        for (const e of env.lex.lookup(ref.lemma)) {
+          for (const f of Object.values(e.forms).flat()) {
+            const nf = normalizeAnswer(f);
+            if (nf !== token && fold(nf) === fold(token) && !listed.has(nf)) clashes.add(nf);
+          }
+        }
+      }
+      for (const c of clashes) errors.push(`accept «${a}»: без диакритики совпадает с «${c}» — добавьте её в reject`);
+    }
+  }
   if (t.kind === 'translate' && t.direction === 'ru-lt' && t.source.trim().split(/\s+/).length > MAX_RU_LT_WORDS) {
     errors.push(`перевод RU→LT длиннее ${MAX_RU_LT_WORDS} слов: используйте order`);
   }
@@ -71,6 +98,7 @@ export function validateTask(t: TaskInput, env: ValidationEnv): string[] {
 /** Checks theory HTML: only Telegram tags, balanced. */
 export function validateTheory(html: string): string[] {
   const errors: string[] = [];
+  if (html.length > MAX_THEORY_LENGTH) errors.push(`теория длиннее ${MAX_THEORY_LENGTH} символов (${html.length}): разделите на порции`);
   const stack: string[] = [];
   for (const m of html.matchAll(/<\/?([a-z]+)[^>]*>/gi)) {
     const tag = m[1].toLowerCase();

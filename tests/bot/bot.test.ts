@@ -71,9 +71,11 @@ describe('bot', () => {
     expect(tg.messages.find((m) => m.id === orderMsg.id)!.text).toContain('Aš gyvenu Vilniuje');
     await handleUpdate(press('od', orderMsg.id), ctx);
 
+    // Only the feedback of the last task and the summary stay.
     const training = tg.visible().filter((m) => m.threadId === T.training);
-    expect(training).toHaveLength(1);
-    expect(training[0].text).toContain('Занятие завершено</b>: 3/3');
+    expect(training[0].text.startsWith('✅ Верно!')).toBe(true);
+    expect(training).toHaveLength(2);
+    expect(training[1].text).toContain('Занятие завершено</b>: 3/3');
     expect(await store.activeSession()).toBeNull();
     expect((await store.nextPortion(1))).toBeNull();
   });
@@ -183,5 +185,40 @@ describe('bot', () => {
     await handleUpdate(press('c:1', old), ctx);
     expect(tg.callbacks.at(-1)?.text).toBe('Это задание уже не активно');
     expect(await store.listAnswers({ kind: 'task' })).toHaveLength(1);
+  });
+
+  it('keeps working when update ids restart lower (after a week of silence)', async () => {
+    await handleUpdate({ update_id: 900000, message: { message_id: 1, chat: { id: CHAT }, text: '/start' } }, ctx);
+    await handleUpdate({ update_id: 3, message: { message_id: 2, chat: { id: CHAT }, text: '/start' } }, ctx);
+    expect(tg.messages.filter((m) => m.text.includes('Labas!'))).toHaveLength(2);
+  });
+
+  it('keeps the feedback of the last task visible and disputable', async () => {
+    await seedPortion([input]);
+    await handleUpdate(msg(BTN_START), ctx);
+    await handleUpdate(msg('gyveni'), ctx);
+    const fb = tg.visible().find((m) => m.text.startsWith('❌'));
+    expect(fb?.text).toContain('gyvenu');
+    expect(tg.buttons(fb!).some((x) => x.callback_data.startsWith('d:'))).toBe(true);
+  });
+
+  it('always answers the callback even when handling fails', async () => {
+    await seedPortion([order, input]);
+    await handleUpdate(msg(BTN_START), ctx);
+    const id = tg.last().id;
+    tg.api.editMessageText = async () => { throw new Error('Bad Request: message is not modified'); };
+    await expect(handleUpdate(press('or', id), ctx)).rejects.toThrow();
+    expect(tg.callbacks.length).toBeGreaterThan(0);
+  });
+
+  it('accepts a plain message as writing when topics are off and a writing prompt is pending', async () => {
+    await store.setSetting('topics', null);
+    await store.addTasks([{ payload: writing, portionId: null }], now.toISOString());
+    await store.createSession({ slot: 'new', portionId: null, startedAt: '2026-11-03T06:00:00Z', finishedAt: '2026-11-03T06:10:00Z', items: [], cursor: 0, messageIds: [], lastUpdateId: null, state: {}, correct: 0, total: 0 });
+    await store.upsertWord(word('namas'), 1, '2026-11-10T00:00:00Z');
+    await handleUpdate(msg(BTN_START), ctx);
+    expect(tg.visible().some((m) => m.text.includes('Письменное задание'))).toBe(true);
+    await handleUpdate(msg('Labas, Tomai!'), ctx);
+    expect((await store.listAnswers({ pendingReview: true })).map((a) => a.answer)).toEqual(['Labas, Tomai!']);
   });
 });

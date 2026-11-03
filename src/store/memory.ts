@@ -12,13 +12,20 @@ export function createMemoryStore(): Store {
   const tasks: Task[] = [];
   const sessions: Session[] = [];
   const answers: Answer[] = [];
+  const updates = new Set<number>();
 
   return {
     async getSetting<T>(key: string) {
       return settings.has(key) ? clone(settings.get(key) as T) : null;
     },
     async setSetting(key, value) {
-      settings.set(key, clone(value));
+      if (value === null || value === undefined) settings.delete(key);
+      else settings.set(key, clone(value));
+    },
+    async markUpdate(updateId) {
+      if (updates.has(updateId)) return false;
+      updates.add(updateId);
+      return true;
     },
 
     async upsertLessons(list) {

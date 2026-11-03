@@ -94,6 +94,8 @@ export function createTelegramAdmin(token: string, fetchImpl: typeof fetch = fet
     async setWebhook(url, secret) {
       await call('setWebhook', {
         url, secret_token: secret, allowed_updates: ['message', 'callback_query'], drop_pending_updates: true,
+        // One request at a time: session state is read-modify-write.
+        max_connections: 1,
       });
     },
     getMe: () => call('getMe', {}),

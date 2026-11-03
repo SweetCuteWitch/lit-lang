@@ -10,6 +10,8 @@ export interface LexEntry {
   /** Form key → variants, first is the main one. Keys: nouns `gen.sg`; adjectives `f.acc.sg`;
    *  numerals `m.nom`; verbs `inf`, `pres.1sg|2sg|3|1pl|2pl`, `past.*`, `freq.*`, `fut.*`, `cond.*`, `imp.*`. */
   forms: Record<string, string[]>;
+  /** Built by adding a prefix to a known verb, not taken from Wiktionary as is. */
+  derived?: boolean;
   /** Other valid forms without a key (participles, definite adjectives, comparatives…). */
   other: string[];
 }

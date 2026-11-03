@@ -68,6 +68,8 @@ export interface SessionState {
   revealed?: boolean;
   /** Reading task: index of the current question. */
   question?: number;
+  /** Feedback message of the latest answer: kept when the session ends, so the last result stays visible. */
+  lastFeedbackId?: number;
   /** Tags of wrong answers in this session (kept across items). */
   mistakes?: string[];
   /** Message id of the current interactive prompt (to edit it). */
@@ -135,7 +137,10 @@ export interface AnswerFilter {
 
 export interface Store {
   getSetting<T>(key: string): Promise<T | null>;
+  /** null removes the setting. */
   setSetting(key: string, value: unknown): Promise<void>;
+  /** Records a Telegram update id; false when it was already handled (webhook retry). */
+  markUpdate(updateId: number): Promise<boolean>;
 
   upsertLessons(lessons: Lesson[]): Promise<void>;
   listLessons(): Promise<Lesson[]>;
