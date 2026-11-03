@@ -1,0 +1,58 @@
+{
+  "portions": [
+    {
+      "lessonNo": 1,
+      "seq": 1,
+      "theory": "<b>Литовский алфавит</b> — латиница плюс особые буквы:\n• <b>ą ę į ų</b> — долгие гласные (носовой призвук давно исчез): <i>ą</i> ≈ долгое «а».\n• <b>ė</b> — узкое долгое «э»; <b>ū</b> и <b>y</b> — долгие «у» и «и».\n• <b>č š ž</b> — «ч», «ш», «ж».\n• Сочетания: <b>ie</b> ≈ «иэ», <b>uo</b> ≈ «уо», <b>ai</b>, <b>ei</b>.\nЧитается почти всё как пишется.\n\n<b>Приветствия</b>\n• <b>Labas!</b> — Привет! (универсально)\n• <b>Labas rytas!</b> — Доброе утро!\n• <b>Laba diena!</b> — Добрый день!\n• <b>Labas vakaras!</b> — Добрый вечер!\n• <b>Sveiki!</b> — Здравствуйте! (вежливо или многим)\n• <b>Viso gero!</b> — До свидания! · <b>Iki!</b> — Пока!\n\n<i>diena</i> женского рода, поэтому <i>laba</i> diena, а <i>rytas</i> и <i>vakaras</i> — мужского: <i>labas</i>.",
+      "words": [
+        { "lemma": "labas", "translation": "привет; добрый", "example": "Labas! Laba diena!" },
+        { "lemma": "rytas", "translation": "утро", "example": "Labas rytas!" },
+        { "lemma": "diena", "translation": "день", "example": "Laba diena!" },
+        { "lemma": "vakaras", "translation": "вечер", "example": "Labas vakaras!" },
+        { "lemma": "sveikas", "translation": "здоровый; Sveiki! — Здравствуйте!", "example": "Sveiki!" },
+        { "lemma": "viso gero", "translation": "до свидания", "example": "Viso gero!" }
+      ]
+    },
+    {
+      "lessonNo": 1,
+      "seq": 2,
+      "theory": "<b>Вежливые слова</b>\n• <b>Ačiū</b> — спасибо. <b>Labai ačiū</b> — большое спасибо.\n• <b>Prašom</b> — пожалуйста (в ответ на «спасибо» и когда что-то даёте).\n• <b>Atsiprašau</b> — извините.\n• <b>Taip</b> — да. <b>Ne</b> — нет.\n• <b>Gerai</b> — хорошо.\n\n<b>Мини-диалог</b>\n— Labas! Kaip sekasi? <i>(Как дела?)</i>\n— Gerai, ačiū!\n\n<i>Ударение в литовском не обозначается на письме, его запоминают со словом. На экзамене оно не проверяется.</i>",
+      "words": [
+        { "lemma": "ačiū", "translation": "спасибо", "example": "Labai ačiū!" },
+        { "lemma": "prašom", "translation": "пожалуйста (ответ на спасибо)", "example": "— Ačiū! — Prašom." },
+        { "lemma": "atsiprašyti", "translation": "извиняться; atsiprašau — извините", "example": "Atsiprašau!" },
+        { "lemma": "taip", "translation": "да" },
+        { "lemma": "ne", "translation": "нет; не" },
+        { "lemma": "gerai", "translation": "хорошо", "example": "Gerai, ačiū!" }
+      ]
+    }
+  ],
+  "tasks": [
+    { "kind": "choice", "lessonNo": 1, "slot": "new", "portionKey": "1.1", "tags": ["greetings"], "question": "Как поздороваться утром?", "options": ["Labas rytas!", "Labas vakaras!", "Viso gero!"], "correct": 0, "explanation": "rytas — утро" },
+    { "kind": "choice", "lessonNo": 1, "slot": "new", "portionKey": "1.1", "tags": ["greetings"], "question": "«Labas vakaras!» значит…", "options": ["Добрый вечер!", "Доброе утро!", "До свидания!"], "correct": 0, "explanation": "vakaras — вечер" },
+    { "kind": "input", "lessonNo": 1, "slot": "new", "portionKey": "1.1", "tags": ["greetings", "gender"], "question": "Laba ___! (Добрый день!)", "accept": ["diena"], "explanation": "diena — день; женский род, поэтому laba" },
+    { "kind": "order", "lessonNo": 1, "slot": "new", "portionKey": "1.1", "tags": ["greetings"], "question": "Соберите: «Доброе утро!»", "words": ["rytas", "Labas"], "accept": ["Labas rytas"], "explanation": "" },
+    { "kind": "translate", "direction": "lt-ru", "lessonNo": 1, "slot": "new", "portionKey": "1.1", "tags": ["greetings"], "source": "Sveiki!", "accept": ["Здравствуйте", "Привет", "Здравствуй"], "explanation": "Sveiki! — вежливое приветствие" },
+    { "kind": "choice", "lessonNo": 1, "slot": "new", "portionKey": "1.1", "tags": ["greetings"], "question": "Как попрощаться?", "options": ["Labas!", "Viso gero!", "Sveiki!"], "correct": 1, "explanation": "Viso gero! — До свидания!" },
+    { "kind": "choice", "lessonNo": 1, "slot": "new", "portionKey": "1.1", "tags": ["gender"], "question": "Какое слово женского рода?", "options": ["rytas", "vakaras", "diena"], "correct": 2, "explanation": "Слова на -a обычно женского рода, на -as — мужского" },
+
+    { "kind": "choice", "lessonNo": 1, "slot": "new", "portionKey": "1.2", "tags": ["polite"], "question": "Как сказать «спасибо»?", "options": ["Prašom", "Ačiū", "Atsiprašau"], "correct": 1, "explanation": "Ačiū — спасибо" },
+    { "kind": "choice", "lessonNo": 1, "slot": "new", "portionKey": "1.2", "tags": ["polite"], "question": "«Atsiprašau» значит…", "options": ["Пожалуйста", "Хорошо", "Извините"], "correct": 2, "explanation": "Atsiprašau — извините" },
+    { "kind": "input", "lessonNo": 1, "slot": "new", "portionKey": "1.2", "tags": ["polite"], "question": "— Ačiū! — ___ (Пожалуйста).", "accept": ["Prašom"], "explanation": "В ответ на «ačiū» говорят «prašom»" },
+    { "kind": "translate", "direction": "ru-lt", "lessonNo": 1, "slot": "new", "portionKey": "1.2", "tags": ["polite"], "source": "Да, хорошо", "accept": ["Taip, gerai"], "explanation": "taip — да, gerai — хорошо" },
+    { "kind": "order", "lessonNo": 1, "slot": "new", "portionKey": "1.2", "tags": ["polite"], "question": "Соберите: «Хорошо, спасибо!»", "words": ["ačiū", "Gerai,"], "accept": ["Gerai, ačiū"], "explanation": "" },
+    { "kind": "choice", "lessonNo": 1, "slot": "new", "portionKey": "1.2", "tags": ["polite", "dialog"], "question": "— Kaip sekasi?\n— …", "options": ["Gerai, ačiū!", "Labas rytas!", "Viso gero!"], "correct": 0, "explanation": "Kaip sekasi? — Как дела?", "unverified": ["sekasi"] },
+    { "kind": "translate", "direction": "lt-ru", "lessonNo": 1, "slot": "new", "portionKey": "1.2", "tags": ["polite"], "source": "Ne, ačiū.", "accept": ["Нет, спасибо"], "explanation": "ne — нет" },
+
+    { "kind": "choice", "lessonNo": 1, "slot": "review", "tags": ["greetings"], "question": "Вечером вы входите в магазин. Что сказать?", "options": ["Labas vakaras!", "Labas rytas!", "Ačiū!"], "correct": 0, "explanation": "vakaras — вечер" },
+    { "kind": "translate", "direction": "ru-lt", "lessonNo": 1, "slot": "review", "tags": ["greetings"], "source": "Добрый день!", "accept": ["Laba diena"], "explanation": "diena — ж. р., поэтому laba" },
+    { "kind": "translate", "direction": "ru-lt", "lessonNo": 1, "slot": "review", "tags": ["polite"], "source": "Большое спасибо!", "accept": ["Labai ačiū"], "explanation": "labai — очень", "unverified": ["labai"] },
+    { "kind": "choice", "lessonNo": 1, "slot": "review", "tags": ["polite"], "question": "Вы случайно толкнули человека. Что сказать?", "options": ["Prašom", "Atsiprašau", "Sveiki"], "correct": 1, "explanation": "Atsiprašau — извините" },
+    { "kind": "input", "lessonNo": 1, "slot": "review", "tags": ["greetings"], "question": "Labas ___! (Доброе утро!)", "accept": ["rytas"], "explanation": "rytas — утро" },
+    { "kind": "translate", "direction": "lt-ru", "lessonNo": 1, "slot": "review", "tags": ["greetings"], "source": "Viso gero!", "accept": ["До свидания", "Всего хорошего", "Всего доброго"], "explanation": "" },
+    { "kind": "choice", "lessonNo": 1, "slot": "review", "tags": ["polite"], "question": "«Taip» значит…", "options": ["нет", "да", "хорошо"], "correct": 1, "explanation": "taip — да, ne — нет" },
+    { "kind": "order", "lessonNo": 1, "slot": "review", "tags": ["greetings"], "question": "Соберите: «Добрый вечер!»", "words": ["vakaras", "Labas"], "accept": ["Labas vakaras"], "explanation": "" },
+    { "kind": "translate", "direction": "ru-lt", "lessonNo": 1, "slot": "review", "tags": ["polite"], "source": "Нет, спасибо", "accept": ["Ne, ačiū"], "explanation": "" },
+    { "kind": "choice", "lessonNo": 1, "slot": "review", "tags": ["polite"], "question": "— Ačiū!\n— …", "options": ["Prašom!", "Atsiprašau!", "Ne!"], "correct": 0, "explanation": "На «ačiū» отвечают «prašom»" }
+  ]
+}

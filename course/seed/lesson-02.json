@@ -1,0 +1,56 @@
+{
+  "portions": [
+    {
+      "lessonNo": 2,
+      "seq": 1,
+      "theory": "<b>Личные местоимения</b>\n• <b>aš</b> — я · <b>tu</b> — ты\n• <b>jis</b> — он · <b>ji</b> — она\n• <b>mes</b> — мы · <b>jūs</b> — вы (и вежливое «Вы»)\n• <b>jie</b> — они (м.) · <b>jos</b> — они (ж.)\n\n<b>Глагол būti — быть</b> (в литовском, в отличие от русского, он нужен в настоящем времени!)\n• aš <b>esu</b> · tu <b>esi</b> · jis, ji <b>yra</b>\n• mes <b>esame</b> · jūs <b>esate</b> · jie, jos <b>yra</b>\n\n<i>Aš esu studentas.</i> — Я студент.\n<i>Ji yra mano draugė.</i> — Она моя подруга.\nМестоимение можно опустить: <i>Esu studentas.</i>",
+      "words": [
+        { "lemma": "būti", "translation": "быть", "example": "Aš esu studentas." },
+        { "lemma": "studentas", "translation": "студент", "example": "Jis yra studentas." },
+        { "lemma": "draugas", "translation": "друг", "example": "Tu esi mano draugas." },
+        { "lemma": "draugė", "translation": "подруга", "example": "Ji yra mano draugė." },
+        { "lemma": "mano", "translation": "мой, моя, мои", "example": "mano draugas" }
+      ]
+    },
+    {
+      "lessonNo": 2,
+      "seq": 2,
+      "theory": "<b>Знакомство</b>\n• <b>Koks jūsų vardas?</b> — Как вас зовут? (букв. «Какое ваше имя?»)\n• <b>Mano vardas Jonas.</b> — Меня зовут Йонас.\n• <b>Kokia jūsų pavardė?</b> — Какая ваша фамилия? (<i>pavardė</i> ж. р., поэтому <i>kokia</i>)\n• <b>Kas jūs esate?</b> — Кто вы?\n• <b>Aš esu mokytojas.</b> — Я учитель.\n• <b>Ar jūs esate studentas?</b> — Вы студент? (<b>ar</b> начинает вопрос «да/нет»)\n\n<b>ponas</b> — господин, <b>ponia</b> — госпожа: <i>ponas Jonas</i>.",
+      "words": [
+        { "lemma": "vardas", "translation": "имя", "example": "Mano vardas Jonas." },
+        { "lemma": "pavardė", "translation": "фамилия", "example": "Kokia jūsų pavardė?" },
+        { "lemma": "koks", "translation": "какой (kokia — какая)", "example": "Koks jūsų vardas?" },
+        { "lemma": "mokytojas", "translation": "учитель", "example": "Aš esu mokytojas." },
+        { "lemma": "ponas", "translation": "господин", "example": "ponas Jonas" },
+        { "lemma": "ponia", "translation": "госпожа", "pos": "noun", "keyForms": ["ponia", "ponios", "ponią"], "example": "ponia Lina" }
+      ]
+    }
+  ],
+  "tasks": [
+    { "kind": "input", "lessonNo": 2, "slot": "new", "portionKey": "2.1", "tags": ["verb:būti"], "question": "Aš ___ studentas. (būti)", "accept": ["esu"], "target": { "lemma": "būti", "key": "pres.1sg" }, "explanation": "aš esu" },
+    { "kind": "input", "lessonNo": 2, "slot": "new", "portionKey": "2.1", "tags": ["verb:būti"], "question": "Tu ___ mano draugas. (būti)", "accept": ["esi"], "target": { "lemma": "būti", "key": "pres.2sg" }, "explanation": "tu esi" },
+    { "kind": "input", "lessonNo": 2, "slot": "new", "portionKey": "2.1", "tags": ["verb:būti"], "question": "Ji ___ mano draugė. (būti)", "accept": ["yra"], "target": { "lemma": "būti", "key": "pres.3" }, "explanation": "jis, ji, jie, jos — yra" },
+    { "kind": "choice", "lessonNo": 2, "slot": "new", "portionKey": "2.1", "tags": ["verb:būti"], "question": "Mes ___ draugai.", "options": ["esame", "esate", "yra"], "correct": 0, "explanation": "mes esame" },
+    { "kind": "choice", "lessonNo": 2, "slot": "new", "portionKey": "2.1", "tags": ["verb:būti"], "question": "Jūs ___ studentai?", "options": ["esi", "esate", "esame"], "correct": 1, "explanation": "jūs esate" },
+    { "kind": "choice", "lessonNo": 2, "slot": "new", "portionKey": "2.1", "tags": ["pronouns"], "question": "Как сказать «они» о женщинах?", "options": ["jie", "jos", "jūs"], "correct": 1, "explanation": "jie — они (м.), jos — они (ж.)" },
+    { "kind": "translate", "direction": "ru-lt", "lessonNo": 2, "slot": "new", "portionKey": "2.1", "tags": ["verb:būti"], "source": "Я студент.", "accept": ["Aš esu studentas", "Esu studentas"], "explanation": "В литовском глагол būti нужен: Aš esu studentas." },
+    { "kind": "translate", "direction": "lt-ru", "lessonNo": 2, "slot": "new", "portionKey": "2.1", "tags": ["verb:būti"], "source": "Ji yra mano draugė.", "accept": ["Она моя подруга", "Она - моя подруга"], "explanation": "" },
+
+    { "kind": "order", "lessonNo": 2, "slot": "new", "portionKey": "2.2", "tags": ["introduce"], "question": "Соберите: «Меня зовут Йонас»", "words": ["vardas", "Jonas", "Mano"], "accept": ["Mano vardas Jonas"], "explanation": "Букв.: «Моё имя Йонас»" },
+    { "kind": "choice", "lessonNo": 2, "slot": "new", "portionKey": "2.2", "tags": ["introduce", "gender"], "question": "___ jūsų pavardė?", "options": ["Koks", "Kokia"], "correct": 1, "explanation": "pavardė — ж. р., поэтому kokia" },
+    { "kind": "choice", "lessonNo": 2, "slot": "new", "portionKey": "2.2", "tags": ["introduce", "gender"], "question": "___ jūsų vardas?", "options": ["Koks", "Kokia"], "correct": 0, "explanation": "vardas — м. р., поэтому koks" },
+    { "kind": "translate", "direction": "lt-ru", "lessonNo": 2, "slot": "new", "portionKey": "2.2", "tags": ["introduce"], "source": "Kas jūs esate?", "accept": ["Кто вы", "Кто Вы"], "explanation": "" },
+    { "kind": "input", "lessonNo": 2, "slot": "new", "portionKey": "2.2", "tags": ["verb:būti", "question"], "question": "Ar jūs ___ mokytojas? (būti)", "accept": ["esate"], "target": { "lemma": "būti", "key": "pres.2pl" }, "explanation": "ar — вопросительное слово; jūs esate" },
+    { "kind": "translate", "direction": "ru-lt", "lessonNo": 2, "slot": "new", "portionKey": "2.2", "tags": ["introduce"], "source": "Я учитель.", "accept": ["Aš esu mokytojas", "Esu mokytojas"], "explanation": "" },
+
+    { "kind": "choice", "lessonNo": 2, "slot": "review", "tags": ["verb:būti"], "question": "Jis ___ ponas Jonas.", "options": ["esu", "yra", "esi"], "correct": 1, "explanation": "jis yra" },
+    { "kind": "input", "lessonNo": 2, "slot": "review", "tags": ["verb:būti"], "question": "Mes ___ studentai. (būti)", "accept": ["esame"], "target": { "lemma": "būti", "key": "pres.1pl" }, "explanation": "mes esame" },
+    { "kind": "translate", "direction": "ru-lt", "lessonNo": 2, "slot": "review", "tags": ["verb:būti"], "source": "Ты мой друг.", "accept": ["Tu esi mano draugas", "Esi mano draugas"], "explanation": "" },
+    { "kind": "order", "lessonNo": 2, "slot": "review", "tags": ["verb:būti"], "question": "Соберите: «Она моя подруга»", "words": ["draugė", "yra", "Ji", "mano"], "accept": ["Ji yra mano draugė"], "explanation": "" },
+    { "kind": "choice", "lessonNo": 2, "slot": "review", "tags": ["pronouns"], "question": "«jūs» значит…", "options": ["мы", "вы", "они"], "correct": 1, "explanation": "jūs — вы, mes — мы" },
+    { "kind": "translate", "direction": "lt-ru", "lessonNo": 2, "slot": "review", "tags": ["introduce"], "source": "Koks jūsų vardas?", "accept": ["Как вас зовут", "Как Вас зовут", "Какое ваше имя"], "explanation": "" },
+    { "kind": "input", "lessonNo": 2, "slot": "review", "tags": ["verb:būti"], "question": "Jie ___ mokytojai. (būti)", "accept": ["yra"], "target": { "lemma": "būti", "key": "pres.3" }, "explanation": "jie yra" },
+    { "kind": "reading", "lessonNo": 2, "slot": "review", "tags": ["reading", "introduce"], "title": "Susipažinkime", "text": "Labas! Mano vardas Jonas. Mano pavardė Petraitis. Aš esu studentas. Lina yra mano draugė. Ji yra mokytoja.", "glossary": { "Susipažinkime": "давайте познакомимся", "Petraitis": "Петрайтис (фамилия)", "mokytoja": "учительница" }, "unverified": ["Petraitis", "mokytoja", "Susipažinkime"], "questions": [ { "q": "Jonas yra studentas.", "options": ["Taip", "Ne"], "correct": 0 }, { "q": "Lina yra studentė.", "options": ["Taip", "Ne"], "correct": 1 }, { "q": "Kas yra Lina?", "options": ["Jono draugė", "Jono mokytoja"], "correct": 0 } ] },
+    { "kind": "choice", "lessonNo": 2, "slot": "review", "tags": ["greetings"], "question": "Утром вы знакомитесь с соседом. Что скажете сначала?", "options": ["Labas rytas! Mano vardas…", "Viso gero! Mano vardas…", "Atsiprašau, ne."], "correct": 0, "explanation": "" }
+  ]
+}

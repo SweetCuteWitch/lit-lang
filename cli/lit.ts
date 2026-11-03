@@ -1,10 +1,13 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { loadConfig } from '../src/config';
 import { loadLexicon } from '../src/lexicon/lexicon';
+import { createMemoryStore } from '../src/store/memory';
 import { createSupabaseStore } from '../src/store/supabase';
 import { createTelegramAdmin, createTelegramApi } from '../src/telegram/api';
 import { runCommand } from './commands';
+
+if (existsSync('.env.local')) process.loadEnvFile('.env.local');
 
 async function telegramCommand(argv: string[]): Promise<number> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -45,8 +48,17 @@ async function telegramCommand(argv: string[]): Promise<number> {
   return 2;
 }
 
+/** Lexicon commands work offline, without database credentials. */
+const OFFLINE = new Set(['inflect', 'lookup']);
+
 async function main(argv: string[]): Promise<number> {
   if (argv[0] === 'telegram') return telegramCommand(argv.slice(1));
+  if (OFFLINE.has(argv[0])) {
+    return runCommand(argv, {
+      store: createMemoryStore(), api: createTelegramApi('0:offline'), chatId: 0, now: () => new Date(),
+      lex: () => loadLexicon(), out: (line) => console.log(line), readFile: (path) => readFileSync(path, 'utf8'),
+    });
+  }
   const config = loadConfig();
   return runCommand(argv, {
     store: createSupabaseStore(config),

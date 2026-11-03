@@ -78,6 +78,7 @@ describe('derived and form-of words', () => {
   it('derives prefixed verbs from the base verb', () => {
     expect(lex.form('pagyventi', 'pres.1sg')).toBe('pagyvenu');
     expect(lex.form('pasigyventi', 'past.3')).toBe('pasigyveno');
+    expect(lex.form('pagyventi', 'imp.3')).toBeUndefined();
     expect(lex.lemmasOf('pagyvensiu')).toContainEqual({ lemma: 'pagyventi', pos: 'verb', key: 'fut.1sg' });
     expect(lex.lemmasOf('nesimokau')).toEqual([]);
     expect(lex.lemmasOf('negyvenu')).toContainEqual({ lemma: 'negyventi', pos: 'verb', key: 'pres.1sg' });

@@ -87,7 +87,7 @@ async function knownLemmas(deps: CliDeps, extra: Map<number, string[]>) {
   return (lessonNo: number) => {
     const set = new Set<string>();
     const addAll = () => {
-      for (const w of [...set]) if (w.includes(' ')) for (const part of w.split(/s+/)) set.add(part);
+      for (const w of [...set]) if (w.includes(' ')) for (const part of w.split(/\s+/)) set.add(part);
     };
     for (const w of words) set.add(w.lemma.toLowerCase());
     for (const l of lessons) if (l.no <= lessonNo) for (const w of l.words) set.add(w.toLowerCase());

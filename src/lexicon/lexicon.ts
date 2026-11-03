@@ -24,7 +24,8 @@ function withPrefix(e: LexEntry, prefix: string, reflexive: boolean): LexEntry {
     lemma: add(e.lemma),
     pos: 'verb',
     gloss: `${prefix}- + ${e.lemma} (${e.gloss})`,
-    forms: Object.fromEntries(Object.entries(e.forms).map(([k, v]) => [k, v.map(add)])),
+    // 3rd person imperative is te- + present (tegyvena): the prefix goes after te-, so it is not derived.
+    forms: Object.fromEntries(Object.entries(e.forms).filter(([k]) => k !== 'imp.3').map(([k, v]) => [k, v.map(add)])),
     other: [],
   };
 }
