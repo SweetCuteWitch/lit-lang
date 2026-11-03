@@ -1,0 +1,20 @@
+export type Pos = 'noun' | 'name' | 'verb' | 'adj' | 'num' | 'pron' | 'other';
+
+export interface LexEntry {
+  lemma: string;
+  pos: Pos;
+  gender?: 'm' | 'f';
+  /** English gloss from Wiktionary (Claude writes the Russian translation itself). */
+  gloss: string;
+  /** Form key → variants, first is the main one. Keys: nouns `gen.sg`; adjectives `f.acc.sg`;
+   *  numerals `m.nom`; verbs `inf`, `pres.1sg|2sg|3|1pl|2pl`, `past.*`, `freq.*`, `fut.*`, `cond.*`, `imp.*`. */
+  forms: Record<string, string[]>;
+  /** Other valid forms without a key (participles, definite adjectives, comparatives…). */
+  other: string[];
+}
+
+export interface FormRef {
+  lemma: string;
+  pos: Pos;
+  key: string;
+}
