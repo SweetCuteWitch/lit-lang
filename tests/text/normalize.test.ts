@@ -10,6 +10,7 @@ describe('stripStress', () => {
     expect(stripStress('ei̇̃ti')).toBe('eiti');
     expect(stripStress('žmogùs')).toBe('žmogus');
     expect(stripStress('kal̃ba')).toBe('kalba');
+    expect(stripStress('susipažį̇̃stu')).toBe('susipažįstu');
   });
 });
 

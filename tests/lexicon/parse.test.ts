@@ -14,8 +14,9 @@ const get = (lemma: string, pos: string) => {
 const f = (lemma: string, pos: string, key: string) => get(lemma, pos).forms[key]?.[0];
 
 describe('parseEntry', () => {
-  it('skips form-of entries', () => {
-    expect(entries.filter((e) => e.lemma === 'knyga')).toHaveLength(1);
+  it('keeps form-of entries as formof, not as lemmas', () => {
+    expect(entries.filter((e) => e.lemma === 'knyga').map((e) => e.pos)).toEqual(['noun', 'formof']);
+    expect(createLexicon(entries).lookup('knyga').map((e) => e.pos)).toEqual(['noun']);
   });
   it('parses noun tables without stress marks', () => {
     expect(get('knyga', 'noun').gender).toBe('f');
@@ -69,5 +70,20 @@ describe('lexicon', () => {
     expect(lex.lookup('knyga').map((e) => e.pos)).toEqual(['noun']);
     expect(lex.form('gyventi', 'pres.1sg')).toBe('gyvenu');
     expect(lex.form('gyventi', 'pres.9sg')).toBeUndefined();
+  });
+});
+
+describe('derived and form-of words', () => {
+  const lex = createLexicon([...entries, { lemma: 'nėra', pos: 'formof', gloss: 'negative form of yra', forms: {}, other: [] }]);
+  it('derives prefixed verbs from the base verb', () => {
+    expect(lex.form('pagyventi', 'pres.1sg')).toBe('pagyvenu');
+    expect(lex.form('pasigyventi', 'past.3')).toBe('pasigyveno');
+    expect(lex.lemmasOf('pagyvensiu')).toContainEqual({ lemma: 'pagyventi', pos: 'verb', key: 'fut.1sg' });
+    expect(lex.lemmasOf('nesimokau')).toEqual([]);
+    expect(lex.lemmasOf('negyvenu')).toContainEqual({ lemma: 'negyventi', pos: 'verb', key: 'pres.1sg' });
+  });
+  it('knows form-of words without treating them as lemmas', () => {
+    expect(lex.has('nėra')).toBe(true);
+    expect(lex.lookup('nėra')).toEqual([]);
   });
 });

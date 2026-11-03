@@ -1,5 +1,5 @@
 /** Combining marks used by Wiktionary for Lithuanian stress: grave, acute, tilde. */
-const STRESS = /[̀́̃]/g;
+const STRESS = /[\u0300\u0301\u0303]/g;
 
 /**
  * Removes stress marks (kirčiai) and keeps the letters ą č ę ė į š ų ū ž.
@@ -7,7 +7,8 @@ const STRESS = /[̀́̃]/g;
  * so the dot is dropped only after i.
  */
 export function stripStress(s: string): string {
-  return s.normalize('NFD').replace(STRESS, '').replace(/([iI])̇/g, '$1').normalize('NFC');
+  // The dot may follow an ogonek: į + dot above (U+0328 U+0307).
+  return s.normalize('NFD').replace(STRESS, '').replace(/([iI]\u0328?)\u0307/g, '$1').normalize('NFC');
 }
 
 const FOLD: Record<string, string> = { ą: 'a', č: 'c', ę: 'e', ė: 'e', į: 'i', š: 's', ų: 'u', ū: 'u', ž: 'z' };

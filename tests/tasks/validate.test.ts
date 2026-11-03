@@ -57,3 +57,10 @@ describe('validateTheory', () => {
     expect(validateTheory('a < b')).toEqual(['экранируйте &, < и > как &amp; &lt; &gt;']);
   });
 });
+
+describe('multi-word known words', () => {
+  it('accepts a token that is known as part of a phrase', () => {
+    const t = TaskInput.parse({ kind: 'choice', lessonNo: 1, slot: 'review', question: 'Kaip?', options: ['name', 'gyvenu'], correct: 0 });
+    expect(validateTask(t, env(['name', 'gyventi']))).toEqual([]);
+  });
+});

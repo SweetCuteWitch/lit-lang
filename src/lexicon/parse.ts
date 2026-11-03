@@ -118,9 +118,13 @@ export function parseEntry(input: unknown): LexEntry | null {
   const raw = input as RawEntry;
   if (!raw?.word || !raw.pos) return null;
   const senses = raw.senses ?? [];
-  if (senses.length && senses.every((s) => s.tags?.includes('form-of') || s.tags?.includes('alt-of'))) return null;
-  const pos = POS[raw.pos] ?? 'other';
   const lemma = stripStress(raw.word);
+  if (senses.length && senses.every((s) => s.tags?.includes('form-of') || s.tags?.includes('alt-of'))) {
+    // Inflected forms with their own page: valid words, never lemmas. Multi-word ones are useless.
+    if (/\s/.test(lemma)) return null;
+    return { lemma, pos: 'formof', gloss: gloss(raw), forms: {}, other: [] };
+  }
+  const pos = POS[raw.pos] ?? 'other';
   const forms: Record<string, string[]> = {};
   const other: string[] = [];
   const rawForms = raw.forms ?? [];

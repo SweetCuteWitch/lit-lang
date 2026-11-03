@@ -10,7 +10,8 @@ const ALLOWED_TAGS = new Set(['b', 'i', 'u', 's', 'code', 'pre', 'blockquote']);
 
 export interface ValidationEnv {
   lex: Lexicon;
-  /** Lemmas the user has met by the task's lesson (dictionary + lesson word lists + portions). */
+  /** Lemmas the user has met by the task's lesson (dictionary + lesson word lists + portions);
+   *  words of multi-word lemmas (viso gero) are included one by one. */
   known: (lessonNo: number) => Set<string>;
 }
 
@@ -44,8 +45,9 @@ export function validateTask(t: TaskInput, env: ValidationEnv): string[] {
       continue;
     }
     const content = refs.filter((r) => CONTENT_POS.has(r.pos));
+    const lemmaRefs = refs.filter((r) => r.pos !== 'formof');
     // A token that is also a pronoun/numeral/name/function word is fine; otherwise one of its lemmas must be known.
-    if (content.length === refs.length && !content.some((r) => known.has(r.lemma.toLowerCase()))) {
+    if (lemmaRefs.length && content.length === lemmaRefs.length && !known.has(token) && !content.some((r) => known.has(r.lemma.toLowerCase()))) {
       unlearned.add(`${token} (${[...new Set(content.map((r) => r.lemma))].join('/')})`);
     }
   }

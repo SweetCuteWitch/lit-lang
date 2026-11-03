@@ -1,4 +1,5 @@
-export type Pos = 'noun' | 'name' | 'verb' | 'adj' | 'num' | 'pron' | 'other';
+/** formof = an inflected form listed by Wiktionary as its own entry (e.g. nėra): valid, but not a lemma. */
+export type Pos = 'noun' | 'name' | 'verb' | 'adj' | 'num' | 'pron' | 'other' | 'formof';
 
 export interface LexEntry {
   lemma: string;
