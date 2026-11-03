@@ -68,6 +68,8 @@ export interface SessionState {
   revealed?: boolean;
   /** Reading task: index of the current question. */
   question?: number;
+  /** Tags of wrong answers in this session (kept across items). */
+  mistakes?: string[];
   /** Message id of the current interactive prompt (to edit it). */
   promptId?: number;
 }
