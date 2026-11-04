@@ -34,12 +34,12 @@ describe('remind', () => {
     expect(await remind(ctx)).toBe('skipped');
   });
 
-  it('skips the evening reminder after two sessions and replaces older reminders', async () => {
+  it('skips the evening reminder after two sessions and keeps older reminders', async () => {
     now = new Date('2026-11-03T17:00:00Z');
     await remind(ctx);
     const first = tg.last().id;
     await remind(ctx);
-    expect(tg.messages.find((m) => m.id === first)!.deleted).toBe(true);
+    expect(tg.messages.find((m) => m.id === first)!.deleted).toBe(false);
     await store.createSession(session({}));
     await store.createSession(session({ slot: 'review', startedAt: '2026-11-03T16:00:00.000Z' }));
     expect(await remind(ctx)).toBe('skipped');

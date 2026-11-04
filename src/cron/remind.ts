@@ -1,4 +1,4 @@
-import { deleteAll, send, type BotCtx } from '../bot/context';
+import { send, type BotCtx } from '../bot/context';
 import { ABANDON_AFTER_MS, closeSession } from '../bot/session';
 import { bankStatus } from '../learn/progress';
 import { startButton } from '../telegram/format';
@@ -12,7 +12,7 @@ function localHour(d: Date): number {
 /**
  * Morning: reminds about new material unless a new session already happened today.
  * Evening: reminds about consolidation unless two sessions are already done today.
- * Also closes an abandoned session and replaces the previous reminder.
+ * Also closes an abandoned session. Reminders are never deleted: each one keeps a working start button.
  */
 export async function remind(ctx: BotCtx): Promise<'sent' | 'skipped'> {
   const now = ctx.now();
@@ -22,9 +22,6 @@ export async function remind(ctx: BotCtx): Promise<'sent' | 'skipped'> {
   const today = (await ctx.store.listSessions(dayStart(now).toISOString())).filter((s) => s.total > 0 || s.finishedAt === null);
   const morning = localHour(now) < 13;
   if (morning ? today.some((s) => s.slot === 'new') : today.length >= 2) return 'skipped';
-
-  const previous = await ctx.store.getSetting<number>('lastReminderId');
-  if (previous) await deleteAll(ctx, [previous]);
 
   const bank = await bankStatus(ctx.store);
   const lines = [morning ? '☀️ <b>Labas rytas!</b> Время нового материала, ~15 минут.' : '🌙 <b>Labas vakaras!</b> Время закрепления, ~15 минут.'];
