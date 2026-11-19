@@ -85,6 +85,8 @@ export interface SessionState {
   revealed?: boolean;
   /** Reading task: index of the current question. */
   question?: number;
+  /** Reading task: some question of the current item was answered wrong. */
+  readingWrong?: boolean;
   /** Feedback message of the latest answer: kept when the session ends, so the last result stays visible. */
   lastFeedbackId?: number;
   /** Tags of wrong answers in this session (kept across items). */

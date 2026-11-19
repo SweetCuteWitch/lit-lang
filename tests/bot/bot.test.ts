@@ -1,9 +1,10 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BotCtx } from '../../src/bot/context';
 import { handleUpdate, type TgUpdate } from '../../src/bot/handle-update';
 import { createMemoryStore } from '../../src/store/memory';
 import type { Store } from '../../src/store/types';
 import type { TaskInput } from '../../src/tasks/schema';
+import { taskDueAt } from '../../src/learn/mastery';
 import { BTN_START } from '../../src/telegram/format';
 import { createFakeTelegram } from '../helpers/fake-telegram';
 import { word } from '../store/contract';
@@ -93,6 +94,65 @@ describe('bot', () => {
     expect(a).toMatchObject({ answer: 'gyveni', correct: true, disputed: true });
     await handleUpdate(press('c:0', tg.last().id), ctx);
     expect(tg.visible().find((m) => m.text.includes('Занятие завершено'))!.text).toContain('2/2');
+  });
+
+  describe('task mastery', () => {
+    const taskOf = async () => (await store.listTasks({}))[0];
+
+    it('raises the score on a correct choice and schedules the next review', async () => {
+      await seedPortion([choice]);
+      await handleUpdate(msg(BTN_START), ctx);
+      await handleUpdate(press('c:0', tg.last().id), ctx);
+      const t = await taskOf();
+      expect(t.score).toBe(1);
+      expect(t.dueAt).toBe(taskDueAt(1, now));
+    });
+
+    it('keeps the score for an answer without diacritics', async () => {
+      await seedPortion([{ ...input, accept: ['šiandien'], question: 'Сегодня = ___' }]);
+      await handleUpdate(msg(BTN_START), ctx);
+      await handleUpdate(msg('siandien'), ctx);
+      expect((await taskOf()).score).toBe(0);
+    });
+
+    it('resets the score on "I do not know"', async () => {
+      await seedPortion([input]);
+      await handleUpdate(msg(BTN_START), ctx);
+      const t0 = await taskOf();
+      await store.updateTaskScore(t0.id, 3, t0.dueAt!);
+      await handleUpdate(press('idk', tg.last().id), ctx);
+      expect((await taskOf()).score).toBe(0);
+    });
+
+    it('scores a reading item once, after the last question', async () => {
+      const q = (correct: number) => ({ q: 'Q?', options: ['Taip', 'Ne'], correct });
+      await seedPortion([{ ...reading, slot: 'new', questions: [q(0), q(0), q(0)] }]);
+      const spy = vi.spyOn(store, 'updateTaskScore');
+      await handleUpdate(msg(BTN_START), ctx);
+      const t0 = await taskOf();
+      await store.updateTaskScore(t0.id, 2, t0.dueAt!);
+      spy.mockClear();
+      await handleUpdate(press('r:0', tg.last().id), ctx);
+      await handleUpdate(press('r:1', tg.last().id), ctx); // wrong
+      expect(spy).not.toHaveBeenCalled();
+      await handleUpdate(press('r:0', tg.last().id), ctx);
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect((await taskOf()).score).toBe(0);
+    });
+
+    it('sets the score to 2 when an answer is disputed', async () => {
+      await seedPortion([input, choice]);
+      await handleUpdate(msg(BTN_START), ctx);
+      await handleUpdate(msg('gyveni'), ctx);
+      const t0 = (await store.listTasks({})).find((t) => t.payload.kind === 'input')!;
+      expect(t0.score).toBe(0);
+      const fb = tg.visible().find((m) => m.text.startsWith('❌'))!;
+      const btn = tg.buttons(fb).find((b) => b.callback_data.startsWith('d:'))!;
+      await handleUpdate(press(btn.callback_data, fb.id), ctx);
+      const t1 = (await store.listTasks({})).find((t) => t.id === t0.id)!;
+      expect(t1.score).toBe(2);
+      expect(t1.dueAt).toBe(taskDueAt(2, now));
+    });
   });
 
   it('accepts an answer without diacritics and shows the spelling', async () => {

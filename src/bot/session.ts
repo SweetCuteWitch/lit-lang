@@ -1,5 +1,6 @@
 import { bankStatus } from '../learn/progress';
 import { planSession, type PlanOptions } from '../learn/plan-session';
+import { nextTaskScore, taskDueAt } from '../learn/mastery';
 import { nextBox } from '../learn/srs';
 import type { Session, Task } from '../store/types';
 import { checkText, type CheckResult } from '../tasks/check';
@@ -138,6 +139,12 @@ async function feedback(ctx: BotCtx, s: Session, task: Task, answer: string, r: 
   s.state.lastFeedbackId = await sendTracked(ctx, s, f.text, f.markup);
 }
 
+/** Moves the task's mastery counter after an answer; the task is the one fetched at the start of the item. */
+async function applyScore(ctx: BotCtx, task: Task, r: { correct: boolean; exact: boolean }) {
+  const score = nextTaskScore(task.score, r);
+  await ctx.store.updateTaskScore(task.id, score, taskDueAt(score, ctx.now()));
+}
+
 async function advance(ctx: BotCtx, s: Session) {
   s.cursor++;
   s.state = { mistakes: s.state.mistakes, lastFeedbackId: s.state.lastFeedbackId };
@@ -160,7 +167,9 @@ export async function answerTyped(ctx: BotCtx, s: Session, text: string, userMes
   s.messageIds.push(userMessageId);
   const p = task.payload;
   await clearKeyboard(ctx, s.state.promptId);
-  await feedback(ctx, s, task, text, checkText(text, p.accept, p.reject), p.explanation);
+  const r = checkText(text, p.accept, p.reject);
+  await feedback(ctx, s, task, text, r, p.explanation);
+  await applyScore(ctx, task, r);
   await advance(ctx, s);
   return true;
 }
@@ -211,7 +220,9 @@ export async function answerButton(ctx: BotCtx, s: Session, cb: SessionCallback,
 
   if (cb.type === 'idk' && (p.kind === 'input' || p.kind === 'translate')) {
     await clearKeyboard(ctx, messageId);
-    await feedback(ctx, s, task, '', { correct: false, exact: false, expected: p.accept[0] }, p.explanation);
+    const r = { correct: false, exact: false, expected: p.accept[0] };
+    await feedback(ctx, s, task, '', r, p.explanation);
+    await applyScore(ctx, task, r);
     await advance(ctx, s);
     return null;
   }
@@ -220,6 +231,7 @@ export async function answerButton(ctx: BotCtx, s: Session, cb: SessionCallback,
     await clearKeyboard(ctx, messageId);
     const ok = cb.index === p.correct;
     await feedback(ctx, s, task, p.options[cb.index], { correct: ok, exact: ok, expected: p.options[p.correct] }, p.explanation);
+    await applyScore(ctx, task, { correct: ok, exact: ok });
     await advance(ctx, s);
     return null;
   }
@@ -230,11 +242,13 @@ export async function answerButton(ctx: BotCtx, s: Session, cb: SessionCallback,
     await clearKeyboard(ctx, messageId);
     const ok = cb.index === q.correct;
     await feedback(ctx, s, task, q.options[cb.index], { correct: ok, exact: ok, expected: q.options[q.correct] }, '');
+    const wrong = (s.state.readingWrong ?? false) || !ok;
     if (qi + 1 < p.questions.length) {
       const f = formatReading(p, qi + 1, s.cursor + 1, s.items.length);
-      s.state = { mistakes: s.state.mistakes, question: qi + 1, promptId: await sendTracked(ctx, s, f.text, f.markup) };
+      s.state = { mistakes: s.state.mistakes, question: qi + 1, readingWrong: wrong, promptId: await sendTracked(ctx, s, f.text, f.markup) };
       await save(ctx, s);
     } else {
+      await applyScore(ctx, task, { correct: !wrong, exact: !wrong });
       await advance(ctx, s);
     }
     return null;
@@ -253,7 +267,9 @@ export async function answerButton(ctx: BotCtx, s: Session, cb: SessionCallback,
     const built = (s.state.picked ?? []).map((i) => (p as TaskOf<'order'>).words[i]).join(' ');
     if (!built) return 'Сначала выберите слова';
     await clearKeyboard(ctx, messageId);
-    await feedback(ctx, s, task, built, checkText(built, p.accept), p.explanation);
+    const r = checkText(built, p.accept);
+    await feedback(ctx, s, task, built, r, p.explanation);
+    await applyScore(ctx, task, r);
     await advance(ctx, s);
     return null;
   }
@@ -272,6 +288,7 @@ export async function dispute(ctx: BotCtx, answerId: string, messageId: number):
     s.state.mistakes = (s.state.mistakes ?? []).filter((t) => !drop.has(t));
     await save(ctx, s);
   }
+  if (a.taskId) await ctx.store.updateTaskScore(a.taskId, 2, taskDueAt(2, ctx.now()));
   await clearKeyboard(ctx, messageId);
   return TEXT.disputed;
 }
