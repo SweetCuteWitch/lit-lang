@@ -111,8 +111,12 @@ describe('bot', () => {
     it('keeps the score for an answer without diacritics', async () => {
       await seedPortion([{ ...input, accept: ['šiandien'], question: 'Сегодня = ___' }]);
       await handleUpdate(msg(BTN_START), ctx);
+      const t0 = await taskOf();
+      await store.updateTaskScore(t0.id, 2, t0.dueAt!);
       await handleUpdate(msg('siandien'), ctx);
-      expect((await taskOf()).score).toBe(0);
+      const t1 = await taskOf();
+      expect(t1.score).toBe(2);
+      expect(t1.dueAt).toBe(taskDueAt(2, now));
     });
 
     it('resets the score on "I do not know"', async () => {
