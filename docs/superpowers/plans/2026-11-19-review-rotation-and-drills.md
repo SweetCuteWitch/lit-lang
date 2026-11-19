@@ -219,4 +219,4 @@
 - [ ] **Step 2:** `SKILL.md`: раздел «Рецепты» (формат, правила развёртки кратко, имена, замена, `recipes retire`, `retireTask` в спорах); шаг 5 — цели: рецепт на грамматику каждого пройденного урока и на каждый слабый тег без рецепта; ручных review-заданий — переводы, чтение, письмо и то, что рецептом не выразить; цель после генерации `≥ 2 порции впереди` (убрать «≥ 40 review-заданий»).
 - [ ] **Step 3:** `npm test && npm run typecheck && npm run build` → всё зелёное.
 - [ ] **Step 4: Commit** `feat(course): first recipes; skill docs for recipes`.
-- [ ] **Step 5 (с пользователем, после merge):** пользователь выполняет `supabase/migrations/0003_rotation_recipes.sql` в SQL Editor и выкатывает бот; затем `npm run -s lit -- bank add --file course/seed/lesson-04-recipes.json` и `status`.
+- [ ] **Step 5 (с пользователем, до деплоя/merge):** пользователь выполняет `supabase/migrations/0003_rotation_recipes.sql` в SQL Editor (миграция аддитивная, старый код на ней работает), затем мержит и выкатывает бот; затем `npm run -s lit -- bank add --file course/seed/lesson-04-recipes.json` и `status`.

@@ -25,6 +25,8 @@ routine (раз в день) ── /lit-generate ──> CLI ──> Supabase <
    режим тем (Bot Settings → Threaded Mode / Topics), если он доступен.
 2. **Supabase.** Новый проект → SQL Editor → выполните по порядку `supabase/migrations/0001_init.sql`, `0002_processed_updates.sql` и `0003_rotation_recipes.sql`.
    Нужны Project URL и service_role key.
+   Уже развёрнутой установке достаточно выполнить только `0003_rotation_recipes.sql` — и **до** деплоя этой версии:
+   миграция только добавляет таблицу и столбцы, старый код работает на новой схеме.
 3. **`.env.local`** по образцу `.env.example`. Секреты (`TELEGRAM_WEBHOOK_SECRET`, `CRON_SECRET`) —
    случайные строки 16+ символов из `A-Za-z0-9_-`.
 4. **ID чата.** Напишите боту `/start`, затем `npm run lit -- telegram chat-id` → `TELEGRAM_CHAT_ID`.
@@ -33,6 +35,7 @@ routine (раз в день) ── /lit-generate ──> CLI ──> Supabase <
    npm run lit -- course load
    npm run lit -- bank add --file course/seed/lesson-01.json
    npm run lit -- bank add --file course/seed/lesson-02.json
+   npm run lit -- bank add --file course/seed/lesson-04-recipes.json
    ```
 6. **Vercel.** Импортируйте репозиторий, добавьте переменные из `.env.local`, задеплойте.
    Затем `npm run lit -- telegram set-webhook --url https://<app>.vercel.app/api/telegram/webhook`.
