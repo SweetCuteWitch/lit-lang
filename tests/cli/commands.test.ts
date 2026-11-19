@@ -148,6 +148,49 @@ describe('cli', () => {
       expect(out.join('\n')).toContain('buti\tурок 2\tverb:būti\tиспользовано 2 из 2 вариантов');
     });
 
+    it('a fixed frame with the same answer updates the payload and keeps the score', async () => {
+      files['b.json'] = { recipes: [buti([F0, F1])] };
+      await run('bank', 'add', '--file', 'b.json');
+      const tasks = await materialize('buti');
+      for (const t of tasks) await store.updateTaskScore(t.id, 3, '2026-12-01T00:00:00Z');
+      out.length = 0;
+      files['b2.json'] = { recipes: [buti([{ lt: 'Aš ___ geras studentas.', key: 'pres.1sg' }, F1])] };
+      await store.upsertLessons([{ no: 2, title: 'Aš esu studentas', grammar: 'būti', topic: 'учёба', skill: 'grammar', words: ['studentas', 'draugė', 'geras'] }]);
+      expect(await run('bank', 'add', '--file', 'b2.json')).toBe(0);
+      expect(out).toContain('  обновлено: 1, сброшено: 0, возвращено: 0, снято: 0');
+      const after = await byKey((await store.getRecipe('buti'))!.id);
+      expect(after.get('0#būti')).toMatchObject({ status: 'ready', score: 3, dueAt: '2026-12-01T00:00:00Z' });
+      expect(after.get('0#būti')!.payload).toMatchObject({ question: 'Aš ___ geras studentas. (būti)', accept: ['esu'] });
+      expect(after.get('1#būti')).toMatchObject({ score: 3, payload: tasks[1]!.payload });
+    });
+
+    it('re-adding an identical recipe changes nothing', async () => {
+      files['b.json'] = { recipes: [buti([F0, F1])] };
+      await run('bank', 'add', '--file', 'b.json');
+      const id = (await store.getRecipe('buti'))!.id;
+      const tasks = await materialize('buti');
+      for (const t of tasks) await store.updateTaskScore(t.id, 3, '2026-12-01T00:00:00Z');
+      const before = await store.listTasks({ recipeId: id });
+      out.length = 0;
+      expect(await run('bank', 'add', '--file', 'b.json')).toBe(0);
+      expect(out).toEqual(['Сохранено заданий: 0, отклонено: 0', '✓ рецепт buti (урок 2): 2 вариантов']);
+      expect(await store.listTasks({ recipeId: id })).toEqual(before);
+    });
+
+    it('re-adding a retired recipe brings its tasks back with score 0', async () => {
+      files['b.json'] = { recipes: [buti([F0, F1])] };
+      await run('bank', 'add', '--file', 'b.json');
+      const tasks = await materialize('buti');
+      for (const t of tasks) await store.updateTaskScore(t.id, 4, '2026-12-01T00:00:00Z');
+      await run('recipes', 'retire', 'buti');
+      out.length = 0;
+      expect(await run('bank', 'add', '--file', 'b.json')).toBe(0);
+      expect(out).toContain('  обновлено: 0, сброшено: 0, возвращено: 2, снято: 0');
+      for (const t of tasks) {
+        expect(await store.getTask(t.id)).toMatchObject({ status: 'ready', score: 0, dueAt: '2026-11-03T10:00:00.000Z' });
+      }
+    });
+
     it('recipes retire retires every task and empties the variants', async () => {
       files['b.json'] = { recipes: [buti([F0, F1])] };
       await run('bank', 'add', '--file', 'b.json');
