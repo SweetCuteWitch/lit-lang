@@ -1,3 +1,4 @@
+import type { Variant } from '../tasks/from-variant';
 import type { TaskInput, TaskKind } from '../tasks/schema';
 
 export interface Lesson {
@@ -57,7 +58,23 @@ export interface Task {
   tags: string[];
   status: TaskStatus;
   createdAt: string;
+  /** Mastery score of the task. */
+  score: number;
+  dueAt: string | null;
+  recipeId: string | null;
+  variantKey: string | null;
 }
+
+export interface RecipeRecord {
+  name: string;
+  kind: 'form';
+  lessonNo: number;
+  tags: string[];
+  payload: unknown;
+  variants: Variant[];
+}
+
+export type Recipe = RecipeRecord & { id: string; createdAt: string };
 
 export type SessionItem = { type: 'task'; taskId: string } | { type: 'word'; wordId: string };
 
@@ -121,6 +138,7 @@ export interface TaskFilter {
   lessonNo?: number;
   portionId?: string;
   kind?: TaskKind;
+  recipeId?: string;
   limit?: number;
 }
 
@@ -161,12 +179,19 @@ export interface Store {
   updateWordBox(id: string, box: number, dueAt: string): Promise<void>;
   listWords(): Promise<Word[]>;
 
-  addTasks(tasks: { payload: TaskInput; portionId: string | null }[], now: string): Promise<Task[]>;
+  /** A (recipeId, variantKey) pair that already exists is skipped silently; returns only created tasks. */
+  addTasks(tasks: { payload: TaskInput; portionId: string | null; recipeId?: string; variantKey?: string }[], now: string): Promise<Task[]>;
   getTask(id: string): Promise<Task | null>;
   /** Oldest first. */
   listTasks(filter: TaskFilter): Promise<Task[]>;
   setTaskStatus(ids: string[], status: TaskStatus): Promise<void>;
   updateTaskPayload(id: string, payload: TaskInput): Promise<void>;
+  updateTaskScore(id: string, score: number, dueAt: string): Promise<void>;
+
+  /** By name; id and createdAt of an existing recipe are kept. */
+  upsertRecipe(r: RecipeRecord, now: string): Promise<Recipe>;
+  getRecipe(name: string): Promise<Recipe | null>;
+  listRecipes(): Promise<Recipe[]>;
 
   createSession(s: Omit<Session, 'id'>): Promise<Session>;
   getSession(id: string): Promise<Session | null>;

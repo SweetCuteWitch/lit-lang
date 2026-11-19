@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Answer, Lesson, Portion, Session, Store, Task, Word } from './types';
+import type { Answer, Lesson, Portion, Recipe, Session, Store, Task, Word } from './types';
 
 const clone = <T>(v: T): T => structuredClone(v);
 
@@ -12,6 +12,7 @@ export function createMemoryStore(): Store {
   const tasks: Task[] = [];
   const sessions: Session[] = [];
   const answers: Answer[] = [];
+  const recipes: Recipe[] = [];
   const updates = new Set<number>();
 
   return {
@@ -95,17 +96,27 @@ export function createMemoryStore(): Store {
     },
 
     async addTasks(list, now) {
-      const rows = list.map(({ payload, portionId }) => ({
-        id: randomUUID(),
-        kind: payload.kind,
-        lessonNo: payload.lessonNo,
-        portionId,
-        slot: payload.slot,
-        payload: clone(payload),
-        tags: [...payload.tags],
-        status: 'ready' as const,
-        createdAt: now,
-      }));
+      const rows: Task[] = [];
+      for (const { payload, portionId, recipeId, variantKey } of list) {
+        const dup =
+          recipeId !== undefined && variantKey !== undefined && [...tasks, ...rows].some((t) => t.recipeId === recipeId && t.variantKey === variantKey);
+        if (dup) continue;
+        rows.push({
+          id: randomUUID(),
+          kind: payload.kind,
+          lessonNo: payload.lessonNo,
+          portionId,
+          slot: payload.slot,
+          payload: clone(payload),
+          tags: [...payload.tags],
+          status: 'ready',
+          createdAt: now,
+          score: 0,
+          dueAt: null,
+          recipeId: recipeId ?? null,
+          variantKey: variantKey ?? null,
+        });
+      }
       tasks.push(...rows);
       return rows.map(clone);
     },
@@ -120,7 +131,8 @@ export function createMemoryStore(): Store {
           (f.slot === undefined || t.slot === f.slot) &&
           (f.lessonNo === undefined || t.lessonNo === f.lessonNo) &&
           (f.portionId === undefined || t.portionId === f.portionId) &&
-          (f.kind === undefined || t.kind === f.kind),
+          (f.kind === undefined || t.kind === f.kind) &&
+          (f.recipeId === undefined || t.recipeId === f.recipeId),
       );
       return list.slice(0, f.limit ?? list.length).map(clone);
     },
@@ -130,6 +142,29 @@ export function createMemoryStore(): Store {
     async updateTaskPayload(id, payload) {
       const t = tasks.find((x) => x.id === id);
       if (t) Object.assign(t, { payload: clone(payload), tags: [...payload.tags] });
+    },
+
+    async updateTaskScore(id, score, dueAt) {
+      const t = tasks.find((x) => x.id === id);
+      if (t) Object.assign(t, { score, dueAt });
+    },
+
+    async upsertRecipe(r, now) {
+      const existing = recipes.find((x) => x.name === r.name);
+      if (existing) {
+        Object.assign(existing, clone(r));
+        return clone(existing);
+      }
+      const row: Recipe = { ...clone(r), id: randomUUID(), createdAt: now };
+      recipes.push(row);
+      return clone(row);
+    },
+    async getRecipe(name) {
+      const r = recipes.find((x) => x.name === name);
+      return r ? clone(r) : null;
+    },
+    async listRecipes() {
+      return recipes.map(clone);
     },
 
     async createSession(s) {

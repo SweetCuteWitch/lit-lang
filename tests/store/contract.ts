@@ -92,6 +92,44 @@ export function storeContract(makeStore: () => Store | Promise<Store>) {
     expect(((await store.getTask(b.id))?.payload as { question: string }).question).toBe('Changed?');
   });
 
+  it('new tasks start with score 0 and null dueAt', async () => {
+    const [t] = await store.addTasks([{ payload: choiceTask(), portionId: null }], T0);
+    expect(t.score).toBe(0);
+    expect(t.dueAt).toBeNull();
+    expect(t.recipeId).toBeNull();
+    expect(t.variantKey).toBeNull();
+  });
+
+  it('updateTaskScore stores score and dueAt', async () => {
+    const [t] = await store.addTasks([{ payload: choiceTask(), portionId: null }], T0);
+    await store.updateTaskScore(t.id, 2, T2);
+    expect(await store.getTask(t.id)).toMatchObject({ score: 2, dueAt: T2 });
+  });
+
+  it('addTasks skips a duplicate recipe variant', async () => {
+    const r = await store.upsertRecipe({ name: 'r1', kind: 'form', lessonNo: 1, tags: [], payload: {}, variants: [] }, T0);
+    const item = { payload: choiceTask(), portionId: null, recipeId: r.id, variantKey: '0#būti' };
+    expect(await store.addTasks([item], T0)).toHaveLength(1);
+    expect(await store.addTasks([item], T1)).toEqual([]);
+    expect(await store.listTasks({ recipeId: r.id })).toHaveLength(1);
+  });
+
+  it('upsertRecipe replaces by name and keeps id', async () => {
+    const base = { name: 'r1', kind: 'form' as const, lessonNo: 1, tags: ['a'], payload: { x: 1 } };
+    const v = (key: string) => ({
+      key, frame: 0, lemma: 'būti', question: 'q', answer: 'a', accept: [], reject: [], distractors: [], orderWords: null,
+      present: ['input' as const], note: '', target: null,
+    });
+    const first = await store.upsertRecipe({ ...base, variants: [v('k1')] }, T0);
+    const second = await store.upsertRecipe({ ...base, variants: [v('k2')] }, T1);
+    expect(second.id).toBe(first.id);
+    expect(second.createdAt).toBe(T0);
+    expect(second.variants.map((x) => x.key)).toEqual(['k2']);
+    expect(await store.listRecipes()).toHaveLength(1);
+    expect((await store.getRecipe('r1'))?.variants[0].key).toBe('k2');
+    expect(await store.getRecipe('nope')).toBeNull();
+  });
+
   it('tracks the active session', async () => {
     expect(await store.activeSession()).toBeNull();
     const s = await store.createSession({

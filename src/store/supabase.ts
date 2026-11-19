@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { TaskInput } from '../tasks/schema';
-import type { Answer, Lesson, Portion, Session, Store, Task, Word } from './types';
+import type { Answer, Lesson, Portion, Recipe, Session, Store, Task, Word } from './types';
 
 interface Cfg {
   supabaseUrl: string;
@@ -24,6 +24,11 @@ const wordRow = (r: any): Word => ({
 const taskRow = (r: any): Task => ({
   id: r.id, kind: r.kind, lessonNo: r.lesson_no, portionId: r.portion_id, slot: r.slot, payload: r.payload as TaskInput,
   tags: r.tags ?? [], status: r.status, createdAt: new Date(r.created_at).toISOString(),
+  score: r.score ?? 0, dueAt: r.due_at ? new Date(r.due_at).toISOString() : null, recipeId: r.recipe_id ?? null, variantKey: r.variant_key ?? null,
+});
+const recipeRow = (r: any): Recipe => ({
+  id: r.id, name: r.name, kind: r.kind, lessonNo: r.lesson_no, tags: r.tags ?? [], payload: r.payload, variants: r.variants ?? [],
+  createdAt: new Date(r.created_at).toISOString(),
 });
 const sessionRow = (r: any): Session => ({
   id: r.id, slot: r.slot, portionId: r.portion_id, startedAt: new Date(r.started_at).toISOString(),
@@ -138,8 +143,23 @@ export function createSupabaseStore(cfg: Cfg): Store {
 
     async addTasks(list, now) {
       if (!list.length) return [];
-      const rows = list.map(({ payload, portionId }) => ({
+      // A partial unique index cannot be used with onConflict: skip existing (recipe, variant) pairs by hand.
+      const existing = new Map<string, Set<string>>();
+      for (const recipeId of new Set(list.map((x) => x.recipeId).filter((x): x is string => !!x))) {
+        const found = must(await db.from('tasks').select('variant_key').eq('recipe_id', recipeId), 'addTasks') as { variant_key: string }[];
+        existing.set(recipeId, new Set(found.map((x) => x.variant_key)));
+      }
+      const fresh = list.filter(({ recipeId, variantKey }) => {
+        if (!recipeId || variantKey === undefined) return true;
+        const seen = existing.get(recipeId)!;
+        if (seen.has(variantKey)) return false;
+        seen.add(variantKey);
+        return true;
+      });
+      if (!fresh.length) return [];
+      const rows = fresh.map(({ payload, portionId, recipeId, variantKey }) => ({
         kind: payload.kind, lesson_no: payload.lessonNo, portion_id: portionId, slot: payload.slot, payload, tags: payload.tags, created_at: now,
+        recipe_id: recipeId ?? null, variant_key: variantKey ?? null,
       }));
       return (must(await db.from('tasks').insert(rows).select().order('seq'), 'addTasks') as any[]).map(taskRow);
     },
@@ -154,6 +174,7 @@ export function createSupabaseStore(cfg: Cfg): Store {
       if (f.lessonNo !== undefined) q = q.eq('lesson_no', f.lessonNo);
       if (f.portionId) q = q.eq('portion_id', f.portionId);
       if (f.kind) q = q.eq('kind', f.kind);
+      if (f.recipeId) q = q.eq('recipe_id', f.recipeId);
       q = q.order('seq');
       if (f.limit !== undefined) q = q.limit(f.limit);
       return (must(await q, 'listTasks') as any[]).map(taskRow);
@@ -163,6 +184,26 @@ export function createSupabaseStore(cfg: Cfg): Store {
     },
     async updateTaskPayload(id, payload) {
       must(await db.from('tasks').update({ payload, tags: payload.tags }).eq('id', id), 'updateTaskPayload');
+    },
+
+    async updateTaskScore(id, score, dueAt) {
+      must(await db.from('tasks').update({ score, due_at: dueAt }).eq('id', id), 'updateTaskScore');
+    },
+
+    async upsertRecipe(r, now) {
+      const fields = { kind: r.kind, lesson_no: r.lessonNo, tags: r.tags, payload: r.payload, variants: r.variants };
+      const existing = must(await db.from('recipes').select('id').eq('name', r.name).maybeSingle(), 'upsertRecipe') as { id: string } | null;
+      const row = existing
+        ? must(await db.from('recipes').update(fields).eq('id', existing.id).select().single(), 'upsertRecipe')
+        : must(await db.from('recipes').insert({ ...fields, name: r.name, created_at: now }).select().single(), 'upsertRecipe');
+      return recipeRow(row);
+    },
+    async getRecipe(name) {
+      const r = must(await db.from('recipes').select('*').eq('name', name).maybeSingle(), 'getRecipe');
+      return r ? recipeRow(r) : null;
+    },
+    async listRecipes() {
+      return (must(await db.from('recipes').select('*').order('created_at'), 'listRecipes') as any[]).map(recipeRow);
     },
 
     async createSession(s) {
