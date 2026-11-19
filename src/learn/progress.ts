@@ -1,4 +1,5 @@
 import type { Store } from '../store/types';
+import { isRotating, rotatingCandidates } from './pick';
 
 export interface Progress {
   lessonNo: number;
@@ -10,7 +11,7 @@ export const ADVANCE_ACCURACY = 0.7;
 export const MAX_REVISIONS = 3;
 /** Answers of the lesson that count for its accuracy. */
 export const ACCURACY_WINDOW = 20;
-export const REVIEW_TASKS_PER_SESSION = 8;
+export const REVIEW_TASKS_PER_SESSION = 10;
 export const BANK_WARNING_DAYS = 2;
 
 export async function getProgress(store: Store): Promise<Progress> {
@@ -49,19 +50,22 @@ export async function weakTags(store: Store, now: Date, days: number): Promise<{
 export interface BankStatus {
   lessonNo: number;
   portionsReady: number;
+  /** Tasks in review rotation (any due date). */
   reviewReady: number;
+  /** Rotating tasks due now. */
+  dueNow: number;
   writingReady: number;
-  /** Days of material left: each day needs one portion and one review session. */
+  /** Days of new material left: one portion a day (review tasks rotate and do not run out). */
   days: number;
   low: boolean;
 }
 
-export async function bankStatus(store: Store): Promise<BankStatus> {
+export async function bankStatus(store: Store, now: Date = new Date()): Promise<BankStatus> {
   const { lessonNo } = await getProgress(store);
   const portionsReady = (await store.listPortions()).filter((p) => p.status === 'ready' && p.lessonNo >= lessonNo).length;
-  const ready = await store.listTasks({ status: 'ready', slot: 'review' });
-  const reviewReady = ready.filter((t) => t.kind !== 'writing').length;
-  const writingReady = ready.length - reviewReady;
-  const days = Math.min(portionsReady, Math.floor(reviewReady / REVIEW_TASKS_PER_SESSION));
-  return { lessonNo, portionsReady, reviewReady, writingReady, days, low: days < BANK_WARNING_DAYS };
+  const all = await store.listTasks({});
+  const reviewReady = all.filter((t) => isRotating(t) && t.lessonNo <= lessonNo).length;
+  const dueNow = rotatingCandidates(all, now, lessonNo).length;
+  const writingReady = all.filter((t) => t.kind === 'writing' && t.status === 'ready' && t.slot === 'review').length;
+  return { lessonNo, portionsReady, reviewReady, dueNow, writingReady, days: portionsReady, low: portionsReady < BANK_WARNING_DAYS };
 }

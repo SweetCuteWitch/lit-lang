@@ -23,7 +23,7 @@ export async function remind(ctx: BotCtx): Promise<'sent' | 'skipped'> {
   const morning = localHour(now) < 13;
   if (morning ? today.some((s) => s.slot === 'new') : today.length >= 2) return 'skipped';
 
-  const bank = await bankStatus(ctx.store);
+  const bank = await bankStatus(ctx.store, now);
   const lines = [morning ? '☀️ <b>Labas rytas!</b> Время нового материала, ~15 минут.' : '🌙 <b>Labas vakaras!</b> Время закрепления, ~15 минут.'];
   if (bank.low) lines.push(`⚠️ Заданий осталось примерно на ${bank.days} дн.`);
   const m = await send(ctx, 'training', lines.join('\n'), { markup: startButton() });

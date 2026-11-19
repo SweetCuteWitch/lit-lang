@@ -4,6 +4,7 @@ import { planSession } from '../../src/learn/plan-session';
 import { nextBox } from '../../src/learn/srs';
 import { createMemoryStore } from '../../src/store/memory';
 import type { Store } from '../../src/store/types';
+import type { Variant } from '../../src/tasks/from-variant';
 import { choiceTask, word } from '../store/contract';
 
 const NOW = new Date('2026-11-03T08:00:00.000Z');
@@ -47,6 +48,16 @@ async function seedLesson(store: Store, lessonNo: number, seqs: number[], tasksP
 const addReview = (store: Store, n: number, over = {}) =>
   store.addTasks(Array.from({ length: n }, () => ({ payload: choiceTask({ slot: 'review', ...over }), portionId: null })), NOW.toISOString());
 
+/** Deterministic pseudo-random generator for plans. */
+const lcg = (seed: number) => () => {
+  seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648;
+  return seed / 2_147_483_648;
+};
+const variant = (n: number): Variant => ({
+  key: `v${n}`, frame: 0, lemma: `l${n}`, question: `Q${n}`, answer: `a${n}`, accept: [`a${n}`], reject: [], distractors: [],
+  orderWords: null, present: ['input'], note: '', target: null,
+});
+
 const answer = (store: Store, lessonNo: number, correct: boolean, tags = ['t'], at = NOW.toISOString()) =>
   store.addAnswer({ kind: 'task', taskId: null, wordId: null, sessionId: null, answer: 'x', correct, exact: correct, tags, lessonNo, createdAt: at });
 
@@ -78,7 +89,7 @@ describe('planSession', () => {
     if ('empty' in plan) throw new Error(plan.empty);
     expect(plan.slot).toBe('review');
     expect(plan.items.filter((i) => i.type === 'word')).toHaveLength(1);
-    expect(plan.items.filter((i) => i.type === 'task')).toHaveLength(8);
+    expect(plan.items.filter((i) => i.type === 'task')).toHaveLength(10);
   });
 
   it('allows a second new portion on request, but not a third', async () => {
@@ -96,17 +107,72 @@ describe('planSession', () => {
     expect('empty' in third ? 'empty' : third.slot).not.toBe('new');
   });
 
-  it('puts tasks with weak tags first in review', async () => {
-    await addReview(store, 10, { tags: ['ok'] });
+  it('includes tasks with weak tags in review', async () => {
+    await addReview(store, 20, { tags: ['ok'] });
     const [weak] = await addReview(store, 1, { tags: ['case:gen'] });
-    await answer(store, 1, false, ['case:gen']);
+    for (let i = 0; i < 3; i++) await answer(store, 1, false, ['case:gen']);
     await store.createSession({
       slot: 'new', portionId: null, startedAt: '2026-11-03T07:00:00.000Z', finishedAt: null,
       items: [], cursor: 0, messageIds: [], lastUpdateId: null, state: {}, correct: 0, total: 0,
     });
-    const plan = await planSession(store, NOW, DAY);
+    const plan = await planSession(store, NOW, DAY, { rand: lcg(1) });
     if ('empty' in plan) throw new Error(plan.empty);
-    expect(plan.items[0]).toEqual({ type: 'task', taskId: weak.id });
+    expect(plan.items).toHaveLength(10);
+    expect(plan.items).toContainEqual({ type: 'task', taskId: weak.id });
+  });
+
+  it('review session takes ≥6 weak-tag tasks when available', async () => {
+    await addReview(store, 8, { tags: ['w'] });
+    await addReview(store, 8, { tags: ['ok'] });
+    for (let i = 0; i < 3; i++) await answer(store, 1, false, ['w']);
+    for (const l of ['a', 'b', 'c', 'd', 'e']) await store.upsertWord(word(l), 1, NOW.toISOString());
+    for (let seed = 1; seed <= 5; seed++) {
+      const plan = await planSession(store, NOW, DAY, { forceReview: true, rand: lcg(seed) });
+      if ('empty' in plan) throw new Error(plan.empty);
+      const words = plan.items.filter((i) => i.type === 'word');
+      const tasks = await Promise.all(plan.items.flatMap((i) => (i.type === 'task' ? [store.getTask(i.taskId)] : [])));
+      expect(words.length).toBeLessThanOrEqual(3);
+      expect(plan.items.slice(0, words.length).every((i) => i.type === 'word')).toBe(true);
+      expect(tasks).toHaveLength(10);
+      expect(tasks.filter((t) => t!.tags.includes('w')).length).toBeGreaterThanOrEqual(6);
+    }
+  });
+
+  it('served tasks come back when due', async () => {
+    const [due, later] = await addReview(store, 2);
+    await store.setTaskStatus([due.id, later.id], 'served');
+    await store.updateTaskScore(due.id, 1, '2026-11-02T08:00:00.000Z');
+    await store.updateTaskScore(later.id, 1, '2026-11-04T08:00:00.000Z');
+    const plan = await planSession(store, NOW, DAY, { forceReview: true });
+    if ('empty' in plan) throw new Error(plan.empty);
+    expect(plan.items).toEqual([{ type: 'task', taskId: due.id }]);
+  });
+
+  it('fills from recipes when the pool is short', async () => {
+    const recipe = await store.upsertRecipe(
+      { name: 'acc', kind: 'form', lessonNo: 1, tags: ['case:acc'], payload: { explanation: 'Galininkas.' }, variants: [1, 2, 3, 4, 5].map(variant) },
+      NOW.toISOString(),
+    );
+    const plan = await planSession(store, NOW, DAY, { forceReview: true, rand: lcg(3) });
+    if ('empty' in plan) throw new Error(plan.empty);
+    const tasks = await Promise.all(plan.items.map((i) => store.getTask((i as { taskId: string }).taskId)));
+    expect(tasks).toHaveLength(4);
+    expect(tasks.every((t) => t!.recipeId === recipe.id && t!.slot === 'review')).toBe(true);
+    expect(tasks[0]!.payload).toMatchObject({ kind: 'input', tags: ['case:acc'] });
+
+    await planSession(store, NOW, DAY, { forceReview: true, rand: lcg(4) });
+    const made = await store.listTasks({ recipeId: recipe.id });
+    expect(made.length).toBeGreaterThanOrEqual(4);
+    expect(made.length).toBeLessThanOrEqual(5);
+    expect(new Set(made.map((t) => t.variantKey)).size).toBe(made.length);
+  });
+
+  it('empty pool gives words only or an empty plan', async () => {
+    expect(await planSession(store, NOW, DAY, { forceReview: true })).toEqual({ empty: expect.any(String) });
+    await store.upsertWord(word('knyga'), 1, NOW.toISOString());
+    const plan = await planSession(store, NOW, DAY, { forceReview: true });
+    if ('empty' in plan) throw new Error(plan.empty);
+    expect(plan.items).toEqual([{ type: 'word', wordId: expect.any(String) }]);
   });
 
   it('advances to the next lesson when the current one is done well', async () => {
@@ -158,7 +224,14 @@ describe('weakTags and bankStatus', () => {
   it('estimates days of material left', async () => {
     const store = createMemoryStore();
     await seedLesson(store, 1, [1, 2, 3]);
-    await addReview(store, 16);
-    expect(await bankStatus(store)).toMatchObject({ portionsReady: 3, reviewReady: 16, days: 2 });
+    const [later] = await addReview(store, 16);
+    await store.updateTaskScore(later.id, 1, '2026-11-04T08:00:00.000Z');
+    expect(await bankStatus(store, NOW)).toMatchObject({ portionsReady: 3, reviewReady: 16, dueNow: 15, days: 3, low: false });
+  });
+  it('warns when fewer than two portions are left', async () => {
+    const store = createMemoryStore();
+    await seedLesson(store, 1, [1]);
+    await addReview(store, 40);
+    expect(await bankStatus(store, NOW)).toMatchObject({ portionsReady: 1, days: 1, low: true });
   });
 });

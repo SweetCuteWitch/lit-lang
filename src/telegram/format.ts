@@ -116,7 +116,7 @@ export function formatFeedback(r: CheckResult, explanation: string, withDispute:
 export function formatSummary(correct: number, total: number, weak: string[], bank: BankStatus | null) {
   const lines = [`🏁 <b>Занятие завершено</b>: ${correct}/${total}`];
   if (weak.length) lines.push(`Ошибки: ${weak.map(esc).join(', ')}`);
-  if (bank?.low) lines.push(`⚠️ Заданий осталось примерно на ${bank.days} дн. Новые появятся после генерации.`);
+  if (bank?.low) lines.push(`⚠️ Нового материала осталось примерно на ${bank.days} дн. Новые порции появятся после генерации.`);
   return lines.join('\n');
 }
 

@@ -42,7 +42,7 @@ export async function closeSession(ctx: BotCtx, s: Session, keep: number[] = [])
 async function finish(ctx: BotCtx, s: Session) {
   await closeSession(ctx, s, s.state.lastFeedbackId ? [s.state.lastFeedbackId] : []);
   const weak = [...new Set(s.state.mistakes ?? [])].slice(0, 5);
-  const bank = await bankStatus(ctx.store);
+  const bank = await bankStatus(ctx.store, ctx.now());
   await send(ctx, 'training', formatSummary(s.correct, s.total, weak, bank), { markup: afterSessionButtons() });
 }
 

@@ -49,7 +49,7 @@ async function showProgress(ctx: BotCtx) {
   }
   await send(ctx, 'training', formatProgress({
     lesson: lessons.find((l) => l.no === lessonNo) ?? null, lessonNo, lessonsTotal: lessons.length, words: words.length,
-    learned: words.filter((w) => w.box >= 3).length, streak, bank: await bankStatus(ctx.store),
+    learned: words.filter((w) => w.box >= 3).length, streak, bank: await bankStatus(ctx.store, ctx.now()),
   }), { markup: mainKeyboard() });
 }
 
