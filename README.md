@@ -23,7 +23,7 @@ routine (раз в день) ── /lit-generate ──> CLI ──> Supabase <
 ## Развёртывание (один раз)
 1. **Бот.** В @BotFather: `/newbot`, получите токен. Для тем в личном чате включите в настройках бота
    режим тем (Bot Settings → Threaded Mode / Topics), если он доступен.
-2. **Supabase.** Новый проект → SQL Editor → выполните по порядку `supabase/migrations/0001_init.sql` и `0002_processed_updates.sql`.
+2. **Supabase.** Новый проект → SQL Editor → выполните по порядку `supabase/migrations/0001_init.sql`, `0002_processed_updates.sql` и `0003_rotation_recipes.sql`.
    Нужны Project URL и service_role key.
 3. **`.env.local`** по образцу `.env.example`. Секреты (`TELEGRAM_WEBHOOK_SECRET`, `CRON_SECRET`) —
    случайные строки 16+ символов из `A-Za-z0-9_-`.
