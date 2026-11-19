@@ -12,6 +12,25 @@ function must<T>(res: { data: T | null; error: { message: string } | null }, wha
   return res.data as T;
 }
 
+/** PostgREST returns at most this many rows per request. */
+const PAGE = 1000;
+
+/**
+ * All rows of a query, page by page. `query` must build a fresh, totally ordered query on each call:
+ * builders are single-use, and an order with ties could skip or repeat rows between pages.
+ */
+async function allRows<T>(
+  query: () => PromiseLike<{ data: T[] | null; error: { message: string } | null }> & { range(from: number, to: number): PromiseLike<{ data: T[] | null; error: { message: string } | null }> },
+  what: string,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const page = must(await query().range(from, from + PAGE - 1), what);
+    out.push(...page);
+    if (page.length < PAGE) return out;
+  }
+}
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const portionRow = (r: any): Portion => ({
   id: r.id, lessonNo: r.lesson_no, seq: r.seq, theory: r.theory, words: r.words ?? [], status: r.status, servedAt: r.served_at,
@@ -146,7 +165,10 @@ export function createSupabaseStore(cfg: Cfg): Store {
       // A partial unique index cannot be used with onConflict: skip existing (recipe, variant) pairs by hand.
       const existing = new Map<string, Set<string>>();
       for (const recipeId of new Set(list.map((x) => x.recipeId).filter((x): x is string => !!x))) {
-        const found = must(await db.from('tasks').select('variant_key').eq('recipe_id', recipeId), 'addTasks') as { variant_key: string }[];
+        const found = await allRows<{ variant_key: string }>(
+          () => db.from('tasks').select('variant_key').eq('recipe_id', recipeId).order('seq'),
+          'addTasks',
+        );
         existing.set(recipeId, new Set(found.map((x) => x.variant_key)));
       }
       const fresh = list.filter(({ recipeId, variantKey }) => {
@@ -168,16 +190,18 @@ export function createSupabaseStore(cfg: Cfg): Store {
       return r ? taskRow(r) : null;
     },
     async listTasks(f) {
-      let q = db.from('tasks').select('*');
-      if (f.status) q = q.eq('status', f.status);
-      if (f.slot) q = q.eq('slot', f.slot);
-      if (f.lessonNo !== undefined) q = q.eq('lesson_no', f.lessonNo);
-      if (f.portionId) q = q.eq('portion_id', f.portionId);
-      if (f.kind) q = q.eq('kind', f.kind);
-      if (f.recipeId) q = q.eq('recipe_id', f.recipeId);
-      q = q.order('seq');
-      if (f.limit !== undefined) q = q.limit(f.limit);
-      return (must(await q, 'listTasks') as any[]).map(taskRow);
+      const query = () => {
+        let q = db.from('tasks').select('*');
+        if (f.status) q = q.eq('status', f.status);
+        if (f.slot) q = q.eq('slot', f.slot);
+        if (f.lessonNo !== undefined) q = q.eq('lesson_no', f.lessonNo);
+        if (f.portionId) q = q.eq('portion_id', f.portionId);
+        if (f.kind) q = q.eq('kind', f.kind);
+        if (f.recipeId) q = q.eq('recipe_id', f.recipeId);
+        return q.order('seq');
+      };
+      if (f.limit !== undefined) return (must(await query().limit(f.limit), 'listTasks') as any[]).map(taskRow);
+      return (await allRows<any>(query, 'listTasks')).map(taskRow);
     },
     async setTaskStatus(ids, status) {
       if (ids.length) must(await db.from('tasks').update({ status }).in('id', ids), 'setTaskStatus');
@@ -203,7 +227,7 @@ export function createSupabaseStore(cfg: Cfg): Store {
       return r ? recipeRow(r) : null;
     },
     async listRecipes() {
-      return (must(await db.from('recipes').select('*').order('created_at'), 'listRecipes') as any[]).map(recipeRow);
+      return (await allRows<any>(() => db.from('recipes').select('*').order('created_at').order('id'), 'listRecipes')).map(recipeRow);
     },
 
     async createSession(s) {

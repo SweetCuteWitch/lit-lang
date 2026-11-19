@@ -1,6 +1,6 @@
 import { bankStatus } from '../learn/progress';
 import { planSession, type PlanOptions } from '../learn/plan-session';
-import { nextTaskScore, taskDueAt } from '../learn/mastery';
+import { taskAfterAnswer, taskDueAt } from '../learn/mastery';
 import { nextBox } from '../learn/srs';
 import type { Session, Task } from '../store/types';
 import { checkText, type CheckResult } from '../tasks/check';
@@ -141,8 +141,8 @@ async function feedback(ctx: BotCtx, s: Session, task: Task, answer: string, r: 
 
 /** Moves the task's mastery counter after an answer; the task is the one fetched at the start of the item. */
 async function applyScore(ctx: BotCtx, task: Task, r: { correct: boolean; exact: boolean }) {
-  const score = nextTaskScore(task.score, r);
-  await ctx.store.updateTaskScore(task.id, score, taskDueAt(score, ctx.now()));
+  const { score, dueAt } = taskAfterAnswer(task.score, r, ctx.now());
+  await ctx.store.updateTaskScore(task.id, score, dueAt);
 }
 
 async function advance(ctx: BotCtx, s: Session) {

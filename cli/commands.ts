@@ -7,7 +7,7 @@ import { bankStatus, getProgress, setProgress, weakTags } from '../src/learn/pro
 import type { Lexicon } from '../src/lexicon/lexicon';
 import type { LexEntry } from '../src/lexicon/types';
 import type { WordInput } from '../src/store/types';
-import { taskFromVariant, type Present, type Variant } from '../src/tasks/from-variant';
+import { taskFromVariant, type Present } from '../src/tasks/from-variant';
 import { expandRecipe, RecipeInput } from '../src/tasks/recipe';
 import { TaskInput } from '../src/tasks/schema';
 import type { ValidationEnv } from '../src/tasks/validate';
@@ -171,8 +171,12 @@ async function bankAdd(deps: CliDeps, file: string): Promise<number> {
 
 /**
  * Saves one recipe. Replacing a recipe of the same name retires tasks of variants that are gone and rebuilds
- * tasks whose variant or recipe meta changed: score kept unless the answer changed (then reset, due now);
- * a rebuilt retired task comes back as ready with score 0. Tasks of unchanged variants are untouched.
+ * tasks whose stored payload differs from the one the new variant builds: score kept unless the answer changed
+ * (then reset, due now); a retired task comes back as ready with score 0 when its variant is new to the recipe
+ * or its payload changed. Up-to-date tasks are untouched.
+ *
+ * Tasks are updated first and the recipe is saved last, and "up to date" is judged from each task's own
+ * payload, not from the old recipe: a run that fails midway is finished by running it again.
  */
 async function addRecipe(deps: CliDeps, env: ValidationEnv, raw: unknown, i: number): Promise<boolean> {
   const r = RecipeInput.safeParse(raw);
@@ -187,37 +191,30 @@ async function addRecipe(deps: CliDeps, env: ValidationEnv, raw: unknown, i: num
   }
   const now = deps.now();
   const old = await deps.store.getRecipe(r.data.name);
-  const saved = await deps.store.upsertRecipe(
-    { name: r.data.name, kind: r.data.kind, lessonNo: r.data.lessonNo, tags: r.data.tags, payload: r.data, variants },
-    now.toISOString(),
-  );
-  deps.out(`✓ рецепт ${saved.name} (урок ${saved.lessonNo}): ${variants.length} вариантов`);
-  for (const w of warnings) deps.out(`  ⚠ ${w}`);
-  if (!old) return true;
 
-  const oldByKey = new Map(old.variants.map((v) => [v.key, v]));
+  const oldKeys = new Set(old?.variants.map((v) => v.key));
   const newByKey = new Map(variants.map((v) => [v.key, v]));
-  const oldMeta = { lessonNo: old.lessonNo, tags: old.tags, explanation: (old.payload as { explanation?: string } | null)?.explanation ?? '' };
-  const metaSame = sameMeta(oldMeta, r.data);
   const gone: string[] = [];
   const revived: string[] = [];
   let updated = 0;
   let reset = 0;
-  for (const t of await deps.store.listTasks({ recipeId: saved.id })) {
+  for (const t of old ? await deps.store.listTasks({ recipeId: old.id }) : []) {
     if (!t.variantKey) continue;
     const v = newByKey.get(t.variantKey);
     if (!v) {
       if (t.status !== 'retired') gone.push(t.id);
       continue;
     }
-    const before = oldByKey.get(t.variantKey);
     const kindKept = v.present.some((p) => p === t.kind);
-    if (before && metaSame && kindKept && sameVariant(before, v)) continue;
-    await deps.store.updateTaskPayload(t.id, taskFromVariant(r.data, v, kindKept ? (t.kind as Present) : v.present[0]!));
-    if (t.status === 'retired') {
+    const fresh = taskFromVariant(r.data, v, kindKept ? (t.kind as Present) : v.present[0]!);
+    const upToDate = samePayload(t.payload, fresh);
+    const revive = t.status === 'retired' && (!upToDate || !oldKeys.has(t.variantKey));
+    if (upToDate && !revive) continue;
+    if (!upToDate) await deps.store.updateTaskPayload(t.id, fresh);
+    if (revive) {
       revived.push(t.id);
       await deps.store.updateTaskScore(t.id, 0, now.toISOString());
-    } else if (!before || before.answer !== v.answer) {
+    } else if (answerOf(t.payload) !== answerOf(fresh)) {
       reset++;
       await deps.store.updateTaskScore(t.id, 0, now.toISOString());
     } else {
@@ -226,6 +223,13 @@ async function addRecipe(deps: CliDeps, env: ValidationEnv, raw: unknown, i: num
   }
   if (gone.length) await deps.store.setTaskStatus(gone, 'retired');
   if (revived.length) await deps.store.setTaskStatus(revived, 'ready');
+
+  const saved = await deps.store.upsertRecipe(
+    { name: r.data.name, kind: r.data.kind, lessonNo: r.data.lessonNo, tags: r.data.tags, payload: r.data, variants },
+    now.toISOString(),
+  );
+  deps.out(`✓ рецепт ${saved.name} (урок ${saved.lessonNo}): ${variants.length} вариантов`);
+  for (const w of warnings) deps.out(`  ⚠ ${w}`);
   const counts = [['обновлено', updated], ['сброшено', reset], ['возвращено', revived.length], ['снято', gone.length]] as const;
   if (counts.some(([, n]) => n)) deps.out(`  ${counts.map(([label, n]) => `${label}: ${n}`).join(', ')}`);
   return true;
@@ -233,18 +237,34 @@ async function addRecipe(deps: CliDeps, env: ValidationEnv, raw: unknown, i: num
 
 const sameList = (a: readonly string[] | null | undefined, b: readonly string[] | null | undefined) =>
   (a ?? null) === (b ?? null) || (!!a && !!b && a.length === b.length && a.every((x, i) => x === b[i]));
-const sameSet = (a: readonly string[], b: readonly string[]) => sameList([...a].sort(), [...b].sort());
+/** Same items with the same counts, in any order. */
+const sameBag = (a: readonly string[] | undefined, b: readonly string[] | undefined) => sameList(a && [...a].sort(), b && [...b].sort());
 
-function sameMeta(a: { lessonNo: number; tags: string[]; explanation: string }, b: { lessonNo: number; tags: string[]; explanation: string }) {
-  return a.lessonNo === b.lessonNo && a.explanation === b.explanation && sameList(a.tags, b.tags);
+const explanationOf = (p: TaskInput) => ('explanation' in p ? p.explanation : '') ?? '';
+
+/** The answer a task checks: the correct option for choice, the first accepted answer otherwise. */
+function answerOf(p: TaskInput): string | undefined {
+  if (p.kind === 'choice') return p.options[p.correct];
+  return 'accept' in p ? p.accept[0] : undefined;
 }
 
-/** Field-by-field (stored variants come back from jsonb with keys reordered); distractors are shuffled on use. */
-function sameVariant(a: Variant, b: Variant): boolean {
-  return a.question === b.question && a.answer === b.answer && a.note === b.note
-    && sameList(a.accept, b.accept) && sameSet(a.reject, b.reject) && sameSet(a.distractors, b.distractors)
-    && sameList(a.orderWords, b.orderWords)
-    && (a.target?.lemma ?? null) === (b.target?.lemma ?? null) && (a.target?.key ?? null) === (b.target?.key ?? null);
+/**
+ * Whether a stored recipe task already matches a freshly built payload. Field by field: stored payloads come
+ * back from jsonb with keys reordered, and choice options and order words are shuffled on every build.
+ */
+function samePayload(a: TaskInput, b: TaskInput): boolean {
+  if (a.kind !== b.kind || a.lessonNo !== b.lessonNo || explanationOf(a) !== explanationOf(b) || !sameList(a.tags, b.tags)) return false;
+  if (a.kind === 'input' && b.kind === 'input') {
+    return a.question === b.question && sameList(a.accept, b.accept) && sameBag([...new Set(a.reject ?? [])], [...new Set(b.reject ?? [])])
+      && (a.target?.lemma ?? null) === (b.target?.lemma ?? null) && (a.target?.key ?? null) === (b.target?.key ?? null);
+  }
+  if (a.kind === 'choice' && b.kind === 'choice') {
+    return a.question === b.question && answerOf(a) === answerOf(b) && sameBag([...new Set(a.options)], [...new Set(b.options)]);
+  }
+  if (a.kind === 'order' && b.kind === 'order') {
+    return a.question === b.question && sameBag(a.words, b.words) && sameList(a.accept, b.accept);
+  }
+  return false;
 }
 
 async function recipesRetire(deps: CliDeps, name: string): Promise<number> {

@@ -27,6 +27,18 @@ const extra: LexEntry[] = [
   { lemma: 'mano', pos: 'pron', gloss: 'my', forms: {}, other: [] },
   { lemma: 'jūsų', pos: 'pron', gloss: 'your', forms: {}, other: [] },
   { lemma: 'iš', pos: 'other', gloss: 'from', forms: {}, other: [] },
+  // Few forms: distractor fallbacks (lyti has one present form; obuolys one other singular form).
+  { lemma: 'lyti', pos: 'verb', gloss: 'to rain', forms: { inf: ['lyti'], 'pres.3': ['lyja'], 'past.3': ['lijo'], 'fut.3': ['lis'] }, other: [] },
+  {
+    lemma: 'obuolys', pos: 'noun', gender: 'm', gloss: 'apple',
+    forms: { 'nom.sg': ['obuolys'], 'gen.sg': ['obuolio'], 'nom.pl': ['obuoliai'], 'gen.pl': ['obuolių'] }, other: [],
+  },
+  // Homographs: liepa (linden / July) has two entries with the same forms; kasa is synthetic, its second
+  // entry differs in gender and gen.sg, to test the ambiguity warning.
+  noun('liepa', 'f', ['liepa', 'liepos', 'liepai', 'liepą', 'liepa', 'liepoje', 'liepa'], []),
+  noun('liepa', 'f', ['liepa', 'liepos', 'liepai', 'liepą', 'liepa', 'liepoje', 'liepa'], []),
+  noun('kasa', 'f', ['kasa', 'kasos', 'kasai', 'kasą', 'kasa', 'kasoje', 'kasa'], []),
+  noun('kasa', 'm', ['kasa', 'kaso', '', '', '', '', ''], []),
   {
     lemma: 'koks', pos: 'pron', gloss: 'what, which',
     forms: { 'nom.sg': ['koks', 'kokia'], 'nom.pl': ['kokie', 'kokios'], 'gen.sg': ['kokio', 'kokios'], 'acc.sg': ['kokį', 'kokią'] }, other: [],

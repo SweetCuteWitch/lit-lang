@@ -119,6 +119,15 @@ describe('bot', () => {
       expect(t1.dueAt).toBe(taskDueAt(2, now));
     });
 
+    it('a correct answer without diacritics at score 0 is not due the next day', async () => {
+      await seedPortion([{ ...input, accept: ['šiandien'], question: 'Сегодня = ___' }]);
+      await handleUpdate(msg(BTN_START), ctx);
+      await handleUpdate(msg('siandien'), ctx);
+      const t = await taskOf();
+      expect(t.score).toBe(0);
+      expect(t.dueAt).toBe(taskDueAt(1, now));
+    });
+
     it('resets the score on "I do not know"', async () => {
       await seedPortion([input]);
       await handleUpdate(msg(BTN_START), ctx);

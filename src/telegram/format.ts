@@ -129,7 +129,7 @@ export function formatProgress(x: {
     `Урок ${x.lessonNo}${x.lessonsTotal ? ` из ${x.lessonsTotal}` : ''}${x.lesson ? `: ${esc(x.lesson.title)}` : ''} (${pct}% курса)`,
     `Слов в словаре: ${x.words}, выучено (3+ повторения): ${x.learned}`,
     `Серия: ${x.streak} дн. подряд`,
-    `Запас заданий: ~${x.bank.days} дн. (порций: ${x.bank.portionsReady}, заданий на закрепление: ${x.bank.reviewReady})`,
+    `Запас нового материала: ~${x.bank.days} дн. (порций: ${x.bank.portionsReady}, заданий на закрепление: ${x.bank.reviewReady})`,
   ].join('\n');
 }
 

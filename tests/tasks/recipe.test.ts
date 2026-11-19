@@ -59,6 +59,41 @@ describe('expandRecipe', () => {
     expect(variants[0]).toMatchObject({ orderWords: null, present: ['input', 'choice'] });
   });
 
+  it('takes noun distractors from the same number first, without a warning', () => {
+    const { variants, warnings } = expandRecipe(recipe({ frames: [{ lt: 'Aš esu iš ___.', key: 'gen.sg' }], words: ['vardas'] }), env);
+    expect(warnings).toEqual([]);
+    const sgForms = Object.entries(fixtureLexicon.lookup('vardas')[0]!.forms).filter(([k]) => k.endsWith('.sg')).flatMap(([, v]) => v);
+    expect(variants[0]!.distractors).toHaveLength(3);
+    for (const d of variants[0]!.distractors) expect(sgForms).toContain(d);
+  });
+
+  it('warns when noun distractors fall back to the other number', () => {
+    const { variants, warnings } = expandRecipe(recipe({ frames: [{ lt: 'Aš esu iš ___.', key: 'gen.sg' }], words: ['obuolys'] }), {
+      lex: fixtureLexicon, known: () => new Set(['būti', 'obuolys']),
+    });
+    expect(variants[0]!.distractors).toEqual(['obuolys', 'obuoliai', 'obuolių']);
+    expect(variants[0]!.present).toContain('choice');
+    expect(warnings.filter((w) => w.includes('другого числа'))).toEqual([expect.stringContaining('0#obuolys choice')]);
+  });
+
+  it('never takes verb distractors from another tense and drops choice without them', () => {
+    const { variants, warnings } = expandRecipe(recipe({ frames: [{ lt: 'Ji ___.', key: 'pres.3' }], words: ['lyti'], present: ['input', 'choice'] }), {
+      lex: fixtureLexicon, known: () => new Set(['lyti']),
+    });
+    expect(variants[0]).toMatchObject({ answer: 'lyja', distractors: [], present: ['input'] });
+    expect(warnings).toEqual([]);
+  });
+
+  it('warns about homographs with different forms or gender and uses the first entry', () => {
+    const k = { lex: fixtureLexicon, known: () => new Set(['būti', 'kasa', 'liepa']) };
+    const r1 = expandRecipe(recipe({ frames: [{ lt: 'Aš esu iš ___.', key: 'gen.sg' }], words: ['kasa'], present: ['input'] }), k);
+    expect(r1.variants[0]).toMatchObject({ key: '0#kasa', answer: 'kasos' });
+    expect(r1.warnings).toEqual([expect.stringMatching(/^0#kasa: у «kasa» в лексиконе несколько статей/)]);
+    const r2 = expandRecipe(recipe({ frames: [{ lt: 'Aš esu iš ___.', key: 'gen.sg' }], words: ['liepa'], present: ['input'] }), k);
+    expect(r2.variants[0]).toMatchObject({ answer: 'liepos' });
+    expect(r2.warnings).toEqual([]);
+  });
+
   it('skips unknown words with a warning', () => {
     const { variants, warnings } = expandRecipe(recipe({ words: ['būti', 'rašiklis'] }), env);
     expect(variants.map((v) => v.lemma)).toEqual(['būti']);

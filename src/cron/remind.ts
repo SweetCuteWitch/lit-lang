@@ -25,7 +25,7 @@ export async function remind(ctx: BotCtx): Promise<'sent' | 'skipped'> {
 
   const bank = await bankStatus(ctx.store, now);
   const lines = [morning ? '☀️ <b>Labas rytas!</b> Время нового материала, ~15 минут.' : '🌙 <b>Labas vakaras!</b> Время закрепления, ~15 минут.'];
-  if (bank.low) lines.push(`⚠️ Заданий осталось примерно на ${bank.days} дн.`);
+  if (bank.low) lines.push(`⚠️ Нового материала осталось примерно на ${bank.days} дн.`);
   const m = await send(ctx, 'training', lines.join('\n'), { markup: startButton() });
   await ctx.store.setSetting('lastReminderId', m.message_id);
   return 'sent';

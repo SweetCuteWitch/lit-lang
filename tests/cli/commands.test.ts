@@ -5,6 +5,7 @@ import { setProgress } from '../../src/learn/progress';
 import { createMemoryStore } from '../../src/store/memory';
 import type { Store } from '../../src/store/types';
 import { taskFromVariant } from '../../src/tasks/from-variant';
+import { expandRecipe, RecipeInput } from '../../src/tasks/recipe';
 import { createFakeTelegram } from '../helpers/fake-telegram';
 import { fixtureLexicon } from '../helpers/fixture-lexicon';
 
@@ -92,7 +93,7 @@ describe('cli', () => {
   const materialize = async (name: string) => {
     const r = (await store.getRecipe(name))!;
     return store.addTasks(r.variants.map((v) => ({
-      payload: taskFromVariant({ lessonNo: r.lessonNo, tags: r.tags, explanation: '' }, v, 'input'), portionId: null, recipeId: r.id, variantKey: v.key,
+      payload: taskFromVariant({ lessonNo: r.lessonNo, tags: r.tags, explanation: (r.payload as { explanation: string }).explanation }, v, 'input'), portionId: null, recipeId: r.id, variantKey: v.key,
     })), '2026-11-01T00:00:00Z');
   };
   const byKey = async (recipeId: string) => new Map((await store.listTasks({ recipeId })).map((t) => [t.variantKey, t]));
@@ -175,6 +176,76 @@ describe('cli', () => {
       expect(await run('bank', 'add', '--file', 'b.json')).toBe(0);
       expect(out).toEqual(['Сохранено заданий: 0, отклонено: 0', '✓ рецепт buti (урок 2): 2 вариантов']);
       expect(await store.listTasks({ recipeId: id })).toEqual(before);
+    });
+
+    it('a re-run converges after a run that saved the recipe but not the tasks', async () => {
+      files['b.json'] = { recipes: [buti([F0, F1, F2])] };
+      await run('bank', 'add', '--file', 'b.json');
+      const recipe = (await store.getRecipe('buti'))!;
+      const tasks = await materialize('buti');
+      for (const t of tasks) await store.updateTaskScore(t.id, 3, '2026-12-01T00:00:00Z');
+      // A partial run of the old order: the new variants are saved, then it fails before touching tasks.
+      const next = RecipeInput.parse(buti([{ lt: 'Aš ___ studentas.', key: 'past.1sg' }, F1]));
+      const { variants } = expandRecipe(next, { lex: fixtureLexicon, known: () => new Set(['būti', 'studentas', 'draugė']) });
+      await store.upsertRecipe({ name: 'buti', kind: 'form', lessonNo: 2, tags: next.tags, payload: next, variants }, '2026-11-03T10:00:00Z');
+
+      files['b2.json'] = { recipes: [next] };
+      out.length = 0;
+      expect(await run('bank', 'add', '--file', 'b2.json')).toBe(0);
+      expect(out).toContain('  обновлено: 0, сброшено: 1, возвращено: 0, снято: 1');
+      const after = await byKey(recipe.id);
+      expect(after.get('0#būti')).toMatchObject({ status: 'ready', score: 0, dueAt: '2026-11-03T10:00:00.000Z', payload: { accept: ['buvau'] } });
+      expect(after.get('1#būti')).toMatchObject({ status: 'ready', score: 3 });
+      expect(after.get('2#būti')!.status).toBe('retired');
+    });
+
+    it('a re-run converges after a run that updated the tasks but failed to save the recipe', async () => {
+      files['b.json'] = { recipes: [buti([F0, F1, F2])] };
+      await run('bank', 'add', '--file', 'b.json');
+      const recipe = (await store.getRecipe('buti'))!;
+      const tasks = await materialize('buti');
+      for (const t of tasks) await store.updateTaskScore(t.id, 3, '2026-12-01T00:00:00Z');
+      const upsert = store.upsertRecipe.bind(store);
+      store.upsertRecipe = async () => { throw new Error('network'); };
+      files['b2.json'] = { recipes: [buti([{ lt: 'Aš ___ studentas.', key: 'past.1sg' }, F1])] };
+      await expect(run('bank', 'add', '--file', 'b2.json')).rejects.toThrow('network');
+      expect((await store.getRecipe('buti'))!.variants).toHaveLength(3);
+      const half = await byKey(recipe.id);
+      expect(half.get('0#būti')).toMatchObject({ score: 0, payload: { accept: ['buvau'] } });
+
+      store.upsertRecipe = upsert;
+      out.length = 0;
+      expect(await run('bank', 'add', '--file', 'b2.json')).toBe(0);
+      expect(out).toEqual(['Сохранено заданий: 0, отклонено: 0', '✓ рецепт buti (урок 2): 2 вариантов']);
+      expect((await store.getRecipe('buti'))!.variants.map((v) => v.key)).toEqual(['0#būti', '1#būti']);
+      expect(await byKey(recipe.id)).toEqual(half);
+    });
+
+    it('re-adding an identical choice recipe changes nothing although options are shuffled', async () => {
+      files['b.json'] = { recipes: [{ ...buti([F0, F1]), present: ['choice'] }] };
+      await run('bank', 'add', '--file', 'b.json');
+      const r = (await store.getRecipe('buti'))!;
+      await store.addTasks(r.variants.map((v) => ({
+        payload: taskFromVariant({ lessonNo: r.lessonNo, tags: r.tags, explanation: 'Спряжение būti.' }, v, 'choice', () => 0.99),
+        portionId: null, recipeId: r.id, variantKey: v.key,
+      })), '2026-11-01T00:00:00Z');
+      const before = await store.listTasks({ recipeId: r.id });
+      out.length = 0;
+      expect(await run('bank', 'add', '--file', 'b.json')).toBe(0);
+      expect(out).toEqual(['Сохранено заданий: 0, отклонено: 0', '✓ рецепт buti (урок 2): 2 вариантов']);
+      expect(await store.listTasks({ recipeId: r.id })).toEqual(before);
+    });
+
+    it('a rebuild drops a dispute-added accept and keeps the score while the answer is the same', async () => {
+      files['b.json'] = { recipes: [buti([F0, F1])] };
+      await run('bank', 'add', '--file', 'b.json');
+      const [t0] = await materialize('buti');
+      await store.updateTaskPayload(t0!.id, { ...(t0!.payload as Extract<typeof t0.payload, { kind: 'input' }>), accept: ['esu', 'esu!'] });
+      await store.updateTaskScore(t0!.id, 3, '2026-12-01T00:00:00Z');
+      out.length = 0;
+      expect(await run('bank', 'add', '--file', 'b.json')).toBe(0);
+      expect(out).toContain('  обновлено: 1, сброшено: 0, возвращено: 0, снято: 0');
+      expect(await store.getTask(t0!.id)).toMatchObject({ score: 3, payload: { accept: ['esu'] } });
     });
 
     it('re-adding a retired recipe brings its tasks back with score 0', async () => {

@@ -17,6 +17,15 @@ export function taskDueAt(score: number, now: Date): string {
   return dayStart(new Date(dayStart(now).getTime() + days * DAY_MS + 12 * 3_600_000)).toISOString();
 }
 
+/**
+ * New score and due date after an answer. A correct answer never brings the task back the next day:
+ * an inexact one at score 0 keeps the score but is due after the score-1 interval.
+ */
+export function taskAfterAnswer(score: number, r: { correct: boolean; exact: boolean }, now: Date): { score: number; dueAt: string } {
+  const next = nextTaskScore(score, r);
+  return { score: next, dueAt: taskDueAt(r.correct ? Math.max(next, 1) : next, now) };
+}
+
 export interface TagStat {
   tag: string;
   answers: number;

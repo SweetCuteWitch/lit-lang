@@ -18,4 +18,6 @@ it('course and seed content pass the same validation as generated content', asyn
     expect(code, out.filter((l) => l.startsWith('✗')).join('\n')).toBe(0);
   }
   expect((await store.listPortions()).length).toBeGreaterThanOrEqual(4);
+  expect(out.some((l) => l.startsWith('✓ рецепт'))).toBe(true);
+  expect(out.filter((l) => l.includes('⚠'))).toEqual([]);
 }, 30_000);

@@ -42,34 +42,47 @@ const MAX_DISTRACTORS = 3;
 
 const uniq = (forms: string[]) => [...new Set(forms.map((f) => stripStress(f)))];
 
-/** Verbs group forms by tense (pres.*), other words by number (*.sg). */
-function sameGroup(e: LexEntry, a: string, b: string): boolean {
-  const seg = (k: string) => (e.pos === 'verb' ? k.split('.')[0] : k.split('.').at(-1));
-  return seg(a) === seg(b);
-}
+const tense = (k: string) => k.split('.')[0];
+const number = (k: string) => k.split('.').find((s) => s === 'sg' || s === 'pl') ?? null;
 
-/** Up to 3 other real forms of the entry for buttons, unique and never an accepted answer. */
-function formDistractors(e: LexEntry, key: string, accept: string[]): string[] {
+/**
+ * Up to 3 other real forms of the entry for buttons, unique and never an accepted answer.
+ * Verbs take only forms of the same tense/mood (pres.*); other words take forms of the same number first,
+ * then of the other number (`otherNumber` is then true, the caller warns).
+ */
+function formDistractors(e: LexEntry, key: string, accept: string[]): { distractors: string[]; otherNumber: boolean } {
   const seen = new Set(accept.map(normalizeAnswer));
   const keys = Object.keys(e.forms).filter((k) => k !== key);
-  const ordered = [...keys.filter((k) => sameGroup(e, k, key)), ...keys.filter((k) => !sameGroup(e, k, key))];
+  const groups = e.pos === 'verb'
+    ? [keys.filter((k) => tense(k) === tense(key))]
+    : [keys.filter((k) => number(k) === number(key)), keys.filter((k) => number(k) !== number(key))];
   const out: string[] = [];
-  for (const k of ordered) {
-    for (const f of uniq(e.forms[k] ?? [])) {
-      const n = normalizeAnswer(f);
-      if (seen.has(n)) continue;
-      seen.add(n);
-      out.push(f);
-      if (out.length === MAX_DISTRACTORS) return out;
+  let otherNumber = false;
+  for (const [g, list] of groups.entries()) {
+    for (const k of list) {
+      for (const f of uniq(e.forms[k] ?? [])) {
+        const n = normalizeAnswer(f);
+        if (seen.has(n)) continue;
+        seen.add(n);
+        out.push(f);
+        if (g > 0) otherNumber = true;
+        if (out.length === MAX_DISTRACTORS) return { distractors: out, otherNumber };
+      }
     }
   }
-  return out;
+  return { distractors: out, otherNumber };
 }
 
-/** The first real entry of the lemma that has the form key. */
-function pickEntry(entries: LexEntry[], key: string): LexEntry | undefined {
-  return entries.find((e) => e.pos !== 'other' && e.pos !== 'formof' && e.forms[key]?.length)
+/**
+ * The first real entry of the lemma that has the form key. `ambiguous` is set when several entries have
+ * the key with different forms or genders (homographs): the first one is still used, the caller warns.
+ */
+function pickEntry(entries: LexEntry[], key: string): { entry?: LexEntry; ambiguous: boolean } {
+  const entry = entries.find((e) => e.pos !== 'other' && e.pos !== 'formof' && e.forms[key]?.length)
     ?? entries.find((e) => e.forms[key]?.length);
+  const sig = (e: LexEntry) => `${e.gender ?? ''}|${uniq(e.forms[key]!).sort().join('|')}`;
+  const sigs = new Set(entries.filter((e) => e.forms[key]?.length).map(sig));
+  return { entry, ambiguous: sigs.size > 1 };
 }
 
 /**
@@ -87,12 +100,15 @@ export function expandRecipe(r: RecipeInput, env: ValidationEnv): { variants: Va
 
   r.frames.forEach((frame, i) => {
     for (const word of words) {
-      const e = pickEntry(env.lex.lookup(word), frame.key);
+      const { entry: e, ambiguous } = pickEntry(env.lex.lookup(word), frame.key);
       if (!e) {
         warnings.push(`рамка ${i}, «${word}»: в лексиконе нет формы ${frame.key} — вариант пропущен`);
         continue;
       }
       const key = `${i}#${e.lemma}`;
+      if (ambiguous) {
+        warnings.push(`${key}: у «${word}» в лексиконе несколько статей с разными формами ${frame.key} или родом — взята первая (${e.pos}${e.gender ? `, ${e.gender}` : ''})`);
+      }
       const forms = uniq(e.forms[frame.key]!);
       const withWord = frame.lt.replace('{word}', forms[0]!);
 
@@ -115,7 +131,11 @@ export function expandRecipe(r: RecipeInput, env: ValidationEnv): { variants: Va
       } else {
         answer = forms[0]!;
         accept = forms;
-        distractors = formDistractors(e, frame.key, accept);
+        const d = formDistractors(e, frame.key, accept);
+        distractors = d.distractors;
+        if (d.otherNumber && r.present.includes('choice')) {
+          warnings.push(`${key} choice: среди дистракторов есть формы другого числа — проверь, что кнопки не путают`);
+        }
         question = `${withWord} (${e.lemma})`;
         target = { lemma: e.lemma, key: frame.key };
       }

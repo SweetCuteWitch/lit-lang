@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextTaskScore, tagClass, tagStats, taskDueAt, taskWeight, type TagStat } from '../../src/learn/mastery';
+import { nextTaskScore, tagClass, tagStats, taskAfterAnswer, taskDueAt, taskWeight, type TagStat } from '../../src/learn/mastery';
 import { createMemoryStore } from '../../src/store/memory';
 
 const stat = (over: Partial<TagStat>): TagStat => ({ tag: 't', answers: 0, wrong: 0, wrong7: 0, accuracy: 1, ...over });
@@ -18,6 +18,18 @@ describe('taskDueAt', () => {
     const now = new Date('2026-11-03T20:00:00Z');
     expect(taskDueAt(0, now)).toBe('2026-11-03T22:00:00.000Z');
     expect(taskDueAt(1, now)).toBe('2026-11-05T22:00:00.000Z');
+  });
+});
+
+describe('taskAfterAnswer', () => {
+  const now = new Date('2026-11-03T20:00:00Z');
+  it('never brings a correct answer back the next day', () => {
+    expect(taskAfterAnswer(0, { correct: true, exact: false }, now)).toEqual({ score: 0, dueAt: taskDueAt(1, now) });
+    expect(taskAfterAnswer(0, { correct: true, exact: true }, now)).toEqual({ score: 1, dueAt: taskDueAt(1, now) });
+    expect(taskAfterAnswer(3, { correct: true, exact: false }, now)).toEqual({ score: 3, dueAt: taskDueAt(3, now) });
+  });
+  it('a wrong answer resets and is due the next day', () => {
+    expect(taskAfterAnswer(4, { correct: false, exact: false }, now)).toEqual({ score: 0, dueAt: taskDueAt(0, now) });
   });
 });
 
