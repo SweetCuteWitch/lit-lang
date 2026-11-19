@@ -7,7 +7,7 @@ import { checkText, type CheckResult } from '../tasks/check';
 import type { TaskOf } from '../tasks/schema';
 import {
   afterSessionButtons, esc, formatChoice, formatFeedback, formatOrder, formatReading, formatSummary, formatTyped,
-  formatWordBack, formatWordFront, formatWritingPrompt, TEXT, wordCardBody,
+  formatPortion, formatWordBack, formatWordFront, formatWritingPrompt, TEXT, wordCardBody,
 } from '../telegram/format';
 import { dayStart } from '../time';
 import type { SendOptions } from '../telegram/api';
@@ -52,8 +52,7 @@ async function postPortion(ctx: BotCtx, s: Session) {
   const portion = await ctx.store.getPortion(s.portionId);
   if (!portion) return;
   const lesson = await ctx.store.getLesson(portion.lessonNo);
-  const title = lesson ? `Урок ${lesson.no}: ${esc(lesson.title)}` : `Урок ${portion.lessonNo}`;
-  await send(ctx, 'lessons', `📚 <b>${title}</b> · часть ${portion.seq}\n\n${portion.theory}`);
+  await send(ctx, 'lessons', formatPortion(lesson, portion));
   const now = ctx.now().toISOString();
   for (const w of portion.words) {
     await ctx.store.upsertWord(w, portion.lessonNo, now);

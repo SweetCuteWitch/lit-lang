@@ -1,7 +1,7 @@
 import type { BankStatus } from '../learn/progress';
 import type { CheckResult } from '../tasks/check';
 import type { TaskInput, TaskOf } from '../tasks/schema';
-import type { Lesson, Word } from '../store/types';
+import type { Lesson, Portion, Word } from '../store/types';
 import type { InlineMarkup, ReplyKeyboardMarkup } from './api';
 
 export const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -20,6 +20,56 @@ const inline = (rows: [string, string][][]): InlineMarkup => ({
 
 export const startButton = () => inline([[['▶️ Начать занятие', 'start']]]);
 export const afterSessionButtons = () => inline([[['🔁 Ещё занятие', 'start'], ['➕ Новый материал', 'more']]]);
+export const progressButtons = () => inline([[['📖 Словарь', 'vocab'], ['📚 Уроки', 'lessons']]]);
+
+/** Telegram allows 4096 characters per message; leave room for formatting. */
+export const MAX_MESSAGE = 4000;
+
+/** Joins lines into messages of at most MAX_MESSAGE characters, breaking only between lines. */
+function chunkLines(lines: string[]): string[] {
+  const chunks: string[] = [];
+  let cur = '';
+  for (const line of lines) {
+    if (cur && cur.length + 1 + line.length > MAX_MESSAGE) {
+      chunks.push(cur.trimEnd());
+      cur = '';
+    }
+    cur = cur ? `${cur}\n${line}` : line;
+  }
+  if (cur.trim()) chunks.push(cur.trimEnd());
+  return chunks;
+}
+
+const lessonTitle = (no: number, lesson: Pick<Lesson, 'title'> | null | undefined) =>
+  lesson ? `Урок ${no}: ${esc(lesson.title)}` : `Урок ${no}`;
+
+export function formatVocabList(words: Word[], lessons: Lesson[]): string[] {
+  if (!words.length) return ['Словарь пока пуст.'];
+  const byLesson = new Map<number, Word[]>();
+  for (const w of words) byLesson.set(w.lessonNo, [...(byLesson.get(w.lessonNo) ?? []), w]);
+  const lines: string[] = [];
+  for (const no of [...byLesson.keys()].sort((a, b) => a - b)) {
+    if (lines.length) lines.push('');
+    lines.push(`📖 <b>${lessonTitle(no, lessons.find((l) => l.no === no))}</b>`);
+    for (const w of byLesson.get(no)!) {
+      const gender = w.gender ? ` <i>(${GENDER[w.gender]})</i>` : '';
+      const forms = w.keyForms.length > 1 ? ` · ${w.keyForms.map(esc).join(', ')}` : '';
+      lines.push(`<b>${esc(w.lemma)}</b> — ${esc(w.translation)}${gender}${forms}`);
+    }
+  }
+  return chunkLines(lines);
+}
+
+export function formatLessonsList(lessons: Pick<Lesson, 'no' | 'title'>[]): string {
+  if (!lessons.length) return 'Пройденных уроков пока нет.';
+  return ['📚 <b>Пройденные уроки</b>', ...lessons.map((l) => `${l.no}. ${esc(l.title)}`), '', TEXT_LESSON_PROMPT].join('\n');
+}
+
+export const TEXT_LESSON_PROMPT = 'Напишите номер урока, чтобы прочитать его ещё раз.';
+
+export function formatPortion(lesson: Lesson | null, portion: Pick<Portion, 'lessonNo' | 'seq' | 'theory'>): string {
+  return `📚 <b>${lessonTitle(portion.lessonNo, lesson)}</b> · часть ${portion.seq}\n\n${portion.theory}`;
+}
 
 const KIND_LABEL: Record<TaskInput['kind'], string> = {
   choice: 'Выберите ответ',
