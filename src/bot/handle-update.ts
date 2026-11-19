@@ -1,7 +1,8 @@
 import { bankStatus, getProgress } from '../learn/progress';
-import { BTN_MORE_NEW, BTN_PROGRESS, BTN_START, formatProgress, mainKeyboard, TEXT } from '../telegram/format';
+import { BTN_MORE_NEW, BTN_PROGRESS, BTN_START, formatProgress, mainKeyboard, progressButtons, TEXT } from '../telegram/format';
 import { localDate } from '../time';
 import { getTopics, send, type BotCtx } from './context';
+import { showLessons, showVocab, tryLessonNumber } from './library';
 import { answerButton, answerTyped, dispute, startSession, submitWriting, type PendingWriting, type SessionCallback } from './session';
 
 export interface TgMessage {
@@ -50,7 +51,7 @@ async function showProgress(ctx: BotCtx) {
   await send(ctx, 'training', formatProgress({
     lesson: lessons.find((l) => l.no === lessonNo) ?? null, lessonNo, lessonsTotal: lessons.length, words: words.length,
     learned: words.filter((w) => w.box >= 3).length, streak, bank: await bankStatus(ctx.store, ctx.now()),
-  }), { markup: mainKeyboard() });
+  }), { markup: progressButtons() });
 }
 
 async function onText(ctx: BotCtx, m: TgMessage) {
@@ -63,6 +64,9 @@ async function onText(ctx: BotCtx, m: TgMessage) {
   if (text === BTN_START || text === '/session') return startSession(ctx);
   if (text === BTN_MORE_NEW || text === '/more') return startSession(ctx, { preferNew: true });
   if (text === BTN_PROGRESS || text === '/progress') return showProgress(ctx);
+  if (text === '/vocab') return showVocab(ctx);
+  if (text === '/lessons') return showLessons(ctx);
+  if (await tryLessonNumber(ctx, text)) return;
 
   const topics = await getTopics(ctx);
   const pending = await ctx.store.getSetting<PendingWriting | null>('pendingWriting');
@@ -87,6 +91,11 @@ async function onCallback(ctx: BotCtx, cq: NonNullable<TgUpdate['callback_query'
       await ctx.api.answerCallbackQuery(cq.id);
       answered = true;
       return await startSession(ctx, { preferNew: data === 'more' });
+    }
+    if (data === 'vocab' || data === 'lessons') {
+      await ctx.api.answerCallbackQuery(cq.id);
+      answered = true;
+      return await (data === 'vocab' ? showVocab(ctx) : showLessons(ctx));
     }
     if (data.startsWith('d:')) {
       toast = await dispute(ctx, data.slice(2), messageId);
