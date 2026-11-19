@@ -39,6 +39,23 @@ function texts(t: TaskInput): string[] {
   }
 }
 
+/** Other real forms of the answer's word that fold to the same letters and are not in `listed`
+ *  (normalized accept + reject): typed without diacritics, the answer would be ambiguous with them. */
+export function diacriticClashes(lex: Lexicon, answer: string, listed: Set<string>): string[] {
+  const token = normalizeAnswer(answer);
+  if (/\s/.test(token)) return [];
+  const clashes = new Set<string>();
+  for (const ref of lex.lemmasOf(token)) {
+    for (const e of lex.lookup(ref.lemma)) {
+      for (const f of Object.values(e.forms).flat()) {
+        const nf = normalizeAnswer(f);
+        if (nf !== token && fold(nf) === fold(token) && !listed.has(nf)) clashes.add(nf);
+      }
+    }
+  }
+  return [...clashes];
+}
+
 export function validateTask(t: TaskInput, env: ValidationEnv): string[] {
   const errors: string[] = [];
   const exempt = new Set([...t.unverified, ...(t.kind === 'reading' ? Object.keys(t.glossary) : [])].flatMap(ltTokens));
@@ -74,18 +91,7 @@ export function validateTask(t: TaskInput, env: ValidationEnv): string[] {
     // real form of the same word that folds to the same letters must be listed in reject.
     const listed = new Set([...t.accept, ...t.reject].map((a) => normalizeAnswer(a)));
     for (const a of t.accept) {
-      const token = normalizeAnswer(a);
-      if (/\s/.test(token)) continue;
-      const clashes = new Set<string>();
-      for (const ref of env.lex.lemmasOf(token)) {
-        for (const e of env.lex.lookup(ref.lemma)) {
-          for (const f of Object.values(e.forms).flat()) {
-            const nf = normalizeAnswer(f);
-            if (nf !== token && fold(nf) === fold(token) && !listed.has(nf)) clashes.add(nf);
-          }
-        }
-      }
-      for (const c of clashes) errors.push(`accept «${a}»: без диакритики совпадает с «${c}» — добавьте её в reject`);
+      for (const c of diacriticClashes(env.lex, a, listed)) errors.push(`accept «${a}»: без диакритики совпадает с «${c}» — добавьте её в reject`);
     }
   }
   if (t.kind === 'translate' && t.direction === 'ru-lt' && t.source.trim().split(/\s+/).length > MAX_RU_LT_WORDS) {
