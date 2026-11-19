@@ -9,6 +9,7 @@ export type { Present, Variant } from './from-variant';
 
 const nonEmpty = z.string().trim().min(1);
 const oneBlank = (lt: string) => (lt.match(/___/g)?.length ?? 0) === 1 && !/____/.test(lt);
+const wordSlots = (lt: string) => lt.split('{word}').length - 1;
 
 export const RecipeInput = z.object({
   /** Unique key of the recipe: latin letters, digits, dashes (buti-pres). */
@@ -19,7 +20,9 @@ export const RecipeInput = z.object({
   explanation: z.string(),
   /** A Lithuanian phrase with one `___` and the lexicon form key that fills it. */
   frames: z.array(z.object({
-    lt: nonEmpty.refine(oneBlank, { message: 'в рамке должен быть ровно один ___' }),
+    lt: nonEmpty
+      .refine(oneBlank, { message: 'в рамке должен быть ровно один ___' })
+      .refine((lt) => wordSlots(lt) <= 1, { message: 'в рамке может быть только один {word}' }),
     key: nonEmpty,
     note: z.string().optional(),
   })).min(1),
@@ -29,6 +32,9 @@ export const RecipeInput = z.object({
   present: z.array(z.enum(['input', 'choice', 'order'])).min(1),
 }).refine((r) => !r.byGender || r.frames.every((f) => f.lt.includes('{word}')), {
   message: 'при byGender в каждой рамке нужен {word}', path: ['frames'],
+}).refine((r) => !!r.byGender || r.frames.every((f) => !wordSlots(f.lt)), {
+  // In form mode {word} would be the form for key, i.e. the answer itself.
+  message: '{word} разрешён только с byGender: иначе в вопросе виден ответ', path: ['frames'],
 });
 export type RecipeInput = z.infer<typeof RecipeInput>;
 

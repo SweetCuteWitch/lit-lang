@@ -94,6 +94,21 @@ describe('expandRecipe', () => {
   });
 });
 
+describe('RecipeInput {word}', () => {
+  const base = { name: 'x', kind: 'form', lessonNo: 1, tags: ['t'], explanation: '' };
+  const parse = (lt: string, byGender?: object) => RecipeInput.safeParse({
+    ...base, frames: [{ lt, key: 'nom.sg' }], words: ['vardas'], present: ['choice'], ...(byGender ? { byGender } : {}),
+  }).success;
+  it('forbids {word} without byGender: it would show the answer', () => {
+    expect(parse('Tai ___ {word}.')).toBe(false);
+    expect(parse('Tai ___.')).toBe(true);
+  });
+  it('allows only one {word} per frame', () => {
+    expect(parse('___ {word} {word}?', { m: 'Koks', f: 'Kokia' })).toBe(false);
+    expect(parse('___ jūsų {word}?', { m: 'Koks', f: 'Kokia' })).toBe(true);
+  });
+});
+
 describe('diacriticClashes', () => {
   it('lists forms of the same word that fold to the answer', () => {
     expect(diacriticClashes(fixtureLexicon, 'Rusija', new Set(['rusija']))).toEqual(['rusiją']);
