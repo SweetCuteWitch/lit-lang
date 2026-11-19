@@ -112,11 +112,21 @@ export async function fillFromRecipes(
 export function spreadByRecipe(tasks: Task[]): Task[] {
   const rest = [...tasks];
   const out: Task[] = [];
+  const left = new Map<string, number>();
+  for (const t of tasks) if (t.recipeId) left.set(t.recipeId, (left.get(t.recipeId) ?? 0) + 1);
   while (rest.length) {
     const [a, b] = [out.at(-1)?.recipeId, out.at(-2)?.recipeId];
     const blocked = a && a === b ? a : null;
-    const i = Math.max(0, rest.findIndex((t) => !blocked || t.recipeId !== blocked));
-    out.push(...rest.splice(i, 1));
+    // Non-blocked task of the recipe with the most tasks left (no recipe counts as 0; first wins ties); any if all blocked.
+    let best = -1;
+    rest.forEach((t, i) => {
+      if (blocked && t.recipeId === blocked) return;
+      const n = t.recipeId ? left.get(t.recipeId)! : 0;
+      if (best < 0 || n > (rest[best]!.recipeId ? left.get(rest[best]!.recipeId!)! : 0)) best = i;
+    });
+    const [t] = rest.splice(Math.max(0, best), 1);
+    if (t!.recipeId) left.set(t!.recipeId, left.get(t!.recipeId)! - 1);
+    out.push(t!);
   }
   return out;
 }

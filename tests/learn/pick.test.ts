@@ -63,8 +63,26 @@ describe('spreadByRecipe', () => {
     expect(ids.join(',')).not.toContain('r1,r1,r1');
   });
 
-  it('keeps the order when nothing repeats', () => {
-    const list = [task({ recipeId: 'a' }), task(), task(), task(), task({ recipeId: 'b' })];
-    expect(spreadByRecipe(list)).toEqual(list);
+  const noTriple = (out: Task[]) =>
+    out.every((t, i) => i < 2 || !t.recipeId || t.recipeId !== out[i - 1]!.recipeId || t.recipeId !== out[i - 2]!.recipeId);
+  const sameSet = (out: Task[], input: Task[]) => expect([...out].sort((p, q) => p.id.localeCompare(q.id))).toEqual([...input].sort((p, q) => p.id.localeCompare(q.id)));
+
+  it('spreads a recipe block that comes after other tasks', () => {
+    const list = [task({ recipeId: 'x' }), task({ recipeId: 'y' }), ...['a', 'a', 'a', 'a'].map((r) => task({ recipeId: r }))];
+    const out = spreadByRecipe(list);
+    sameSet(out, list);
+    expect(noTriple(out)).toBe(true);
+  });
+
+  it('spreads recipe tasks appended after tasks without a recipe', () => {
+    const list = [...Array.from({ length: 6 }, () => task()), ...Array.from({ length: 4 }, () => task({ recipeId: 'r' }))];
+    const out = spreadByRecipe(list);
+    sameSet(out, list);
+    expect(noTriple(out)).toBe(true);
+  });
+
+  it('returns every task even when a triple is unavoidable', () => {
+    const list = ['a', 'a', 'a', 'a'].map((r) => task({ recipeId: r }));
+    sameSet(spreadByRecipe(list), list);
   });
 });
